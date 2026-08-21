@@ -3,15 +3,6 @@
 
 port_in_use() {
   local p="$1"
-  if python3 - "$p" <<'PY' 2>/dev/null; then
-    return 0
-  fi
-  return 1
-}
-
-# python exits 0 if bind fails (port busy)
-port_in_use() {
-  local p="$1"
   python3 -c "
 import socket, sys
 p = int(sys.argv[1])
@@ -56,16 +47,14 @@ EOF
 }
 
 next_free() {
-  local start="$1"
-  shift
   local cand
-  for cand in "$start" "$@"; do
+  for cand in "$@"; do
     if ! port_in_use "$cand"; then
       echo "$cand"
       return 0
     fi
   done
-  echo "$start"
+  echo "$1"
   return 1
 }
 
@@ -87,4 +76,15 @@ choose_ports() {
   export HTTP_PORT HTTPS_PORT
   rewrite_env_port "$http" "$https"
   log "Caddy will bind HTTP ${http} and HTTPS ${https}"
+}
+
+force_next_http() {
+  local cur="${HTTP_PORT:-8080}"
+  HTTP_PORT=$(next_free 8088 8090 8180 9080 18080 28080)
+  if [[ "$HTTP_PORT" == "$cur" ]]; then
+    HTTP_PORT=$((cur + 8))
+  fi
+  export HTTP_PORT
+  rewrite_env_port "$HTTP_PORT" "${HTTPS_PORT:-8443}"
+  log "Retrying on HTTP ${HTTP_PORT}"
 }
