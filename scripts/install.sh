@@ -293,13 +293,7 @@ EOF
 log "Done"
 cat "$INSTALL_DIR/INSTALL.txt"
 
-if [[ -d "$HOME/homebrew/plugins" ]]; then
-  log "Decky Loader detected — installing plugin files"
-  mkdir -p "$HOME/homebrew/plugins/dialdeck"
-  cp -a "$INSTALL_DIR/apps/decky/." "$HOME/homebrew/plugins/dialdeck/"
-  if need_cmd pnpm; then
-    (cd "$HOME/homebrew/plugins/dialdeck" && pnpm i && pnpm build) || warn "plugin build failed"
-  else
-    warn "pnpm not found — QAM stats need: cd ~/homebrew/plugins/dialdeck && pnpm i && pnpm build"
-  fi
-fi
+set +e
+# shellcheck disable=SC1091
+source "$INSTALL_DIR/scripts/install-decky.sh"
+install_decky_plugin
