@@ -1,0 +1,17 @@
+Dialdeck third-party open source (runtime)
+
+- LiveKit server and JS SDK — Apache-2.0 — https://github.com/livekit/livekit
+- Pion WebRTC (via LiveKit) — MIT — https://github.com/pion/webrtc
+- RNNoise — BSD-3-Clause — https://gitlab.xiph.org/xiph/rnnoise
+- Jitsi rnnoise-wasm — Apache-2.0 / BSD — https://github.com/jitsi/rnnoise-wasm
+- dtln-rs (optional) — Apache-2.0 — Datadog
+- Postgres — PostgreSQL License
+- Redis — RSALv2 / SPDX as shipped by image
+- MinIO — GNU AGPLv3
+- Caddy — Apache-2.0
+- coturn — BSD-3-Clause
+- React, Vite, Fastify — MIT
+- emoji-mart / emojibase — MIT / various
+
+No proprietary noise, GIF, or media SDK is required to run Dialdeck.
+GIF search providers (Klipy, Giphy) are optional and disabled by default.
