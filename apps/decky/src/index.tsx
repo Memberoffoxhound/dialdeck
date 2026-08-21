@@ -10,7 +10,7 @@ import {
   ToggleField,
   staticClasses
 } from "@decky/ui";
-import { callable, definePlugin, toaster } from "@decky/api";
+import { callable, definePlugin, routerHook, toaster } from "@decky/api";
 import { FaPhoneAlt } from "react-icons/fa";
 
 type Settings = {
@@ -23,9 +23,24 @@ type Settings = {
   muted: boolean;
 };
 
+type Stats = {
+  ok: boolean;
+  quality: string;
+  rtt_ms: number | null;
+  host?: string;
+  bandwidth?: { iface?: string | null; rx_mbps: number; tx_mbps: number };
+  api?: {
+    users?: number;
+    sessions?: number;
+    video?: { min: string; max: string; fps: number; mode: string };
+    memoryMB?: number;
+    error?: string;
+  };
+};
+
 const getSettings = callable<[], Settings>("get_settings");
 const setSettings = callable<[Record<string, unknown>], Settings>("set_settings");
-const health = callable<[], { ok: boolean; error?: string }>("health");
+const serverStats = callable<[], Stats>("server_stats");
 
 function joinUrl(base: string) {
   const u = new URL(base);
@@ -35,7 +50,7 @@ function joinUrl(base: string) {
 }
 
 function Fullscreen() {
-  const [src, setSrc] = useState("https://localhost");
+  const [src, setSrc] = useState("http://127.0.0.1:8080");
   useEffect(() => {
     void getSettings().then((s) => setSrc(joinUrl(s.url)));
   }, []);
@@ -51,25 +66,36 @@ function Fullscreen() {
   );
 }
 
+function qualityColor(q: string) {
+  if (q === "excellent") return "#7cffb2";
+  if (q === "good") return "#e8ff6a";
+  if (q === "fair") return "#ffb347";
+  return "#ff5d7a";
+}
+
 function Panel() {
   const [cfg, setCfg] = useState<Settings | null>(null);
-  const [status, setStatus] = useState("checking…");
+  const [stats, setStats] = useState<Stats | null>(null);
 
   async function refresh() {
     const s = await getSettings();
     setCfg(s);
-    const h = await health();
-    setStatus(h.ok ? "line is up" : `down · ${h.error ?? "unreachable"}`);
+    try {
+      setStats(await serverStats());
+    } catch {
+      setStats({ ok: false, quality: "down", rtt_ms: null });
+    }
   }
 
   useEffect(() => {
     void refresh();
+    const t = setInterval(() => void refresh(), 4000);
+    return () => clearInterval(t);
   }, []);
 
   async function patch(partial: Partial<Settings>) {
     if (!cfg) return;
-    const next = await setSettings(partial);
-    setCfg(next);
+    setCfg(await setSettings(partial));
   }
 
   if (!cfg) {
@@ -80,12 +106,40 @@ function Panel() {
     );
   }
 
+  const q = stats?.quality ?? "down";
+  const bw = stats?.bandwidth;
+
   return (
     <>
-      <PanelSection title="Party line">
+      <PanelSection title="Server">
         <PanelSectionRow>
-          <div>{status}</div>
+          <div style={{ color: qualityColor(q), fontWeight: 700 }}>
+            {q.toUpperCase()}
+            {stats?.rtt_ms != null ? ` · ${stats.rtt_ms} ms` : ""}
+          </div>
         </PanelSectionRow>
+        <PanelSectionRow>
+          <div>
+            {bw
+              ? `${bw.iface ?? "nic"}  ↓ ${bw.rx_mbps} Mb/s  ↑ ${bw.tx_mbps} Mb/s`
+              : "bandwidth …"}
+          </div>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <div>
+            {stats?.api?.users ?? "—"} users · {stats?.api?.sessions ?? "—"} sessions
+          </div>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <div>video {stats?.api?.video?.mode ?? "vbr-auto"} 480p–1080p60</div>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={() => void refresh()}>
+            Refresh stats
+          </ButtonItem>
+        </PanelSectionRow>
+      </PanelSection>
+      <PanelSection title="Party line">
         <PanelSectionRow>
           <TextField
             label="Dialdeck URL"
@@ -142,31 +196,21 @@ function Panel() {
             Open Dialdeck
           </ButtonItem>
         </PanelSectionRow>
-        <PanelSectionRow>
-          <ButtonItem layout="below" onClick={() => void refresh()}>
-            Recheck line
-          </ButtonItem>
-        </PanelSectionRow>
-      </PanelSection>
-      <PanelSection title="Sessions">
-        <PanelSectionRow>
-          Deck = {cfg.role}. Publish 4K from the PC session. Phone can own the mic if CEF blocks capture.
-        </PanelSectionRow>
       </PanelSection>
     </>
   );
 }
 
 export default definePlugin(() => {
+  routerHook.addRoute("/dialdeck", Fullscreen, { exact: true });
   toaster.toast({ title: "Dialdeck", body: "Party line plugin loaded" });
-
   return {
     name: "Dialdeck",
     titleView: <div className={staticClasses.Title}>Dialdeck</div>,
     content: <Panel />,
     icon: <FaPhoneAlt />,
     onDismount() {
-      // routerHook.removeRoute("/dialdeck") if you registered it here
+      routerHook.removeRoute("/dialdeck");
     }
   };
 });
