@@ -6,6 +6,7 @@ type Fun = {
   temp: number | null;
   wind: number | null;
   sky: string;
+  days?: { day: string; hi: number; lo: number; take: string }[];
   news: { title: string; url: string }[];
 };
 
@@ -51,18 +52,26 @@ export default function Login({
     <div className="login">
       <section className="login-fun">
         <div className="weather-card">
-          <span className="eyebrow">Outside</span>
+          <span className="eyebrow">Mf&apos;n weather</span>
           <h2>{fun?.place ?? "Roxana, IL"}</h2>
-          <div className="temp">{fun?.temp != null ? `${Math.round(fun.temp)}°` : "—"}</div>
-          <p>
-            {fun?.sky ?? "Checking the sky"}
-            {fun?.wind != null ? ` · wind ${Math.round(fun.wind)}` : ""}
-          </p>
+          <div className="temp">{fun?.temp != null ? `${Math.round(fun.temp)}\u00b0` : "\u2014"}</div>
+          <p>{fun?.sky ?? "Interrogating the sky..."}</p>
+          {fun?.wind != null ? <small>Wind {Math.round(fun.wind)} mph, being extra</small> : null}
+          <ul className="forecast">
+            {(fun?.days ?? []).map((d) => (
+              <li key={d.day}>
+                <strong>
+                  {Math.round(d.hi)}/{Math.round(d.lo)}
+                </strong>
+                <span>{d.take}</span>
+              </li>
+            ))}
+          </ul>
         </div>
         <div className="news-card">
           <span className="eyebrow">Gaming wire</span>
           <ul>
-            {(fun?.news ?? [{ title: "Loading headlines…", url: "#" }]).map((n) => (
+            {(fun?.news ?? [{ title: "Loading headlines\u2026", url: "#" }]).map((n) => (
               <li key={n.title}>
                 <a href={n.url} target="_blank" rel="noreferrer">
                   {n.title}
@@ -98,7 +107,7 @@ export default function Login({
             Enter
           </button>
         </form>
-        <div className="device-pill">this session · {device}</div>
+        <div className="device-pill">this session \u00b7 {device}</div>
       </section>
     </div>
   );
