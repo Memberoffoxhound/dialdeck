@@ -1,5 +1,11 @@
 # Dialdeck Decky plugin
 
-Install Decky Loader, copy this folder to `~/homebrew/plugins/dialdeck`, and set your instance URL.
+QAM talker panel + Game Mode route for the Dialdeck PWA.
 
-Game Mode CEF can use the mic. Publish the high-refresh game view from the desktop session instead of from the Deck.
+```bash
+pnpm i
+pnpm build
+# copy this folder to ~/homebrew/plugins/dialdeck on the Deck / Bazzite box
+```
+
+See [../../docs/DECKY.md](../../docs/DECKY.md) for architecture, mic limits, and zip layout.

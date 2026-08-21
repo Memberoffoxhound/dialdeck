@@ -2,9 +2,10 @@
   "name": "Dialdeck",
   "author": "dialdeck",
   "flags": ["debug"],
+  "api_version": 1,
   "publish": {
-    "tags": ["chat", "voice", "webrtc"],
-    "description": "Pick up the Dialdeck party line from Game Mode.",
-    "image": null
+    "tags": ["chat", "voice", "webrtc", "bazzite"],
+    "description": "Pick up the Dialdeck party line from Game Mode. Deck talks; the PC publishes.",
+    "image": "https://github.com/Memberoffoxhound/dialdeck"
   }
 }
