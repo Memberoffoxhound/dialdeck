@@ -35,7 +35,7 @@ services:
     image: livekit/livekit-server:latest
     command: ["--config", "/etc/livekit.yaml"]
     volumes:
-      - ./deploy/livekit.yaml:/etc/livekit.yaml:ro
+      - ./deploy/livekit.yaml:/etc/livekit.yaml:ro,z
     ports:
       - "7881:7881"
       - "50000-50100:50000-50100/udp"
@@ -52,7 +52,7 @@ services:
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secretsecretsecretsecretsecretsecre}
       LIVEKIT_HOST: http://livekit:7880
-      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8088}
       REACHABILITY_MODE: ${REACHABILITY_MODE:-local}
       VIDEO_MIN: ${VIDEO_MIN:-480p}
       VIDEO_MAX: ${VIDEO_MAX:-1080p}
@@ -73,11 +73,10 @@ services:
   caddy:
     image: caddy:2-alpine
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy:/data
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - caddy:/data:z
     ports:
-      - "${HTTP_PORT:-8080}:8080"
-      - "${HTTPS_PORT:-8443}:8443"
+      - "${HTTP_PORT:-8088}:8080"
     depends_on:
       - web
       - api
