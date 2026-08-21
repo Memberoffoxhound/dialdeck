@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Dialdeck one-stop installer for Bazzite / SteamOS / Linux.
-# Prompts on /dev/tty so `curl | bash` can still ask for permission.
 set -euo pipefail
 
 REPO_URL="${DIALDECK_REPO:-https://github.com/Memberoffoxhound/dialdeck.git}"
@@ -26,22 +25,10 @@ confirm() {
 }
 
 pick_engine() {
-  if need_cmd docker && docker compose version >/dev/null 2>&1; then
-    ENGINE=(docker compose)
-    return 0
-  fi
-  if need_cmd docker && need_cmd docker-compose; then
-    ENGINE=(docker-compose)
-    return 0
-  fi
-  if need_cmd podman && podman compose version >/dev/null 2>&1; then
-    ENGINE=(podman compose)
-    return 0
-  fi
-  if need_cmd podman-compose; then
-    ENGINE=(podman-compose)
-    return 0
-  fi
+  if need_cmd docker && docker compose version >/dev/null 2>&1; then ENGINE=(docker compose); return 0; fi
+  if need_cmd docker && need_cmd docker-compose; then ENGINE=(docker-compose); return 0; fi
+  if need_cmd podman && podman compose version >/dev/null 2>&1; then ENGINE=(podman compose); return 0; fi
+  if need_cmd podman-compose; then ENGINE=(podman-compose); return 0; fi
   return 1
 }
 
@@ -49,7 +36,7 @@ install_compose_plugin() {
   mkdir -p "$HOME/.local/bin"
   local bin="$HOME/.local/bin/docker-compose"
   if [[ ! -x "$bin" ]]; then
-    log "Downloading Docker Compose v2 plugin to ~/.local/bin (no root)"
+    log "Downloading Docker Compose v2 plugin to ~/.local/bin"
     curl -fsSL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-$(uname -m)" -o "$bin"
     chmod +x "$bin"
   fi
@@ -57,192 +44,147 @@ install_compose_plugin() {
 }
 
 ensure_engine() {
-  if pick_engine; then
-    return 0
-  fi
-
+  pick_engine && return 0
   if need_cmd podman; then
-    log "Podman is installed. Adding a user-space compose binary so we do not have to rebase the OS."
     if confirm "Download docker-compose into ~/.local/bin and use Podman?"; then
       install_compose_plugin
-      if podman compose version >/dev/null 2>&1; then
-        ENGINE=(podman compose)
-        return 0
-      fi
-      systemctl --user enable --now podman.socket 2>/dev/null || true
       ENGINE=(podman compose)
-      podman compose version >/dev/null 2>&1 && return 0
+      return 0
     fi
   fi
+  die "No container engine."
+}
 
-  if need_cmd ujust; then
-    local recipe=""
-    if ujust --dump 2>/dev/null | grep -qE '^setup-docker'; then
-      recipe="setup-docker"
-    elif ujust --dump 2>/dev/null | grep -qE '^install-docker'; then
-      recipe="install-docker"
-    fi
-    if [[ -n "$recipe" ]]; then
-      if confirm "Run 'ujust $recipe'? This may layer packages and can ask for your password / a reboot."; then
-        ujust "$recipe" || warn "ujust $recipe failed"
-        pick_engine && return 0
-      fi
-    fi
+open_fw() {
+  local spec="$1"
+  if need_cmd firewall-cmd; then sudo firewall-cmd --permanent --add-port="$spec" || true
+  elif need_cmd ufw; then sudo ufw allow "$spec" || true
   fi
-
-  if need_cmd rpm-ostree; then
-    if confirm "Layer moby-engine + docker-compose with rpm-ostree? Needs sudo and a reboot."; then
-      sudo rpm-ostree install -y moby-engine docker-compose || sudo rpm-ostree install -y docker docker-compose || true
-      warn "Reboot, then run this installer again."
-      exit 0
-    fi
-  elif need_cmd apt-get || need_cmd dnf; then
-    if confirm "Install Docker Engine with your package manager (sudo)?"; then
-      curl -fsSL https://get.docker.com | sudo sh
-      sudo usermod -aG docker "$USER" || true
-      sudo systemctl enable --now docker
-      pick_engine && return 0
-    fi
-  fi
-
-  die "No container engine. Install Docker or Podman, then re-run."
 }
 
 log "Dialdeck one-stop installer"
 need_cmd curl || die "curl is required"
 need_cmd git || die "git is required"
 need_cmd openssl || die "openssl is required"
-
 ensure_engine
 log "Using: ${ENGINE[*]}"
 
-if need_cmd docker && ! id -nG 2>/dev/null | grep -qw docker && [[ "${EUID:-1}" -ne 0 ]]; then
-  if confirm "Add $USER to the docker group (sudo)?"; then
-    sudo usermod -aG docker "$USER"
-    warn "Group change applies to new logins."
-  fi
-fi
-
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   log "Updating $INSTALL_DIR"
-  git -C "$INSTALL_DIR" fetch origin main && git -C "$INSTALL_DIR" reset --hard origin/main || git -C "$INSTALL_DIR" pull --ff-only || warn "using existing tree"
+  git -C "$INSTALL_DIR" fetch origin main && git -C "$INSTALL_DIR" reset --hard origin/main || true
 else
-  log "Cloning into $INSTALL_DIR"
   mkdir -p "$(dirname "$INSTALL_DIR")"
   git clone --depth 1 "$REPO_URL" "$INSTALL_DIR"
 fi
-
 cd "$INSTALL_DIR"
 chmod +x scripts/*.sh
 
 if confirm "Clear all user data (handles, chat, bans, uploads) and start over?"; then
-  log "Wiping compose volumes and local state"
   "${ENGINE[@]}" -f docker-compose.yml down -v || true
   rm -rf "$INSTALL_DIR/data"
-  log "User data cleared. First name in will be owner again."
 fi
 
 if [[ ! -f .env ]]; then
-  log "Generating secrets and 1080p60 VBR media policy"
-  INVITE=$(openssl rand -hex 3)
+  log "Generating secrets"
   cat > .env <<EOF
 DOMAIN=localhost
-PUBLIC_URL=http://localhost:${HTTP_PORT}
+PUBLIC_URL=https://localhost:${HTTPS_PORT}
 HTTP_PORT=${HTTP_PORT}
 HTTPS_PORT=${HTTPS_PORT}
-
 POSTGRES_USER=dialdeck
 POSTGRES_PASSWORD=$(openssl rand -hex 16)
 POSTGRES_DB=dialdeck
-
 REDIS_PASSWORD=$(openssl rand -hex 16)
-
 MINIO_ROOT_USER=dialdeck
 MINIO_ROOT_PASSWORD=$(openssl rand -hex 16)
-
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=$(openssl rand -hex 24)
-LIVEKIT_WS_URL=ws://localhost:${HTTP_PORT}
-
+LIVEKIT_WS_URL=wss://localhost:${HTTPS_PORT}
 JWT_SECRET=$(openssl rand -hex 32)
-INVITE_CODE=${INVITE}
+INVITE_CODE=$(openssl rand -hex 3)
 REGISTRATION_OPEN=true
-REACHABILITY_MODE=local
-
+REACHABILITY_MODE=public
 VIDEO_MIN=480p
 VIDEO_MAX=1080p
 VIDEO_FPS=60
 VIDEO_MODE=vbr-auto
 EOF
 else
-  log "Keeping existing .env"
+  grep -qE '^HTTPS_PORT=' .env || echo "HTTPS_PORT=${HTTPS_PORT}" >> .env
 fi
 
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
-INVITE_CODE="${INVITE_CODE:-$(openssl rand -hex 3)}"
+set -a; source .env; set +a
+HTTPS_PORT="${HTTPS_PORT:-8443}"
 
 # shellcheck disable=SC1091
 source "$INSTALL_DIR/scripts/pick-ports.sh"
 choose_ports
-set -a
-# shellcheck disable=SC1091
-source .env
-set +a
+set -a; source .env; set +a
 
-log "Writing LiveKit keys"
-cat > deploy/livekit.yaml <<EOF
-port: 7880
-bind_addresses:
-  - ""
-rtc:
-  tcp_port: 7881
-  port_range_start: 50000
-  port_range_end: 50100
-  use_external_ip: false
-  enable_loopback_candidate: true
-keys:
-  ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET}
-logging:
-  level: info
-room:
-  enabled_codecs:
-    - mime: audio/opus
-    - mime: video/vp8
-    - mime: video/vp9
-    - mime: video/h264
-    - mime: video/av1
-EOF
+log "TLS certificates"
+bash scripts/make-tls.sh
+
+log "LiveKit WAN config"
+bash scripts/write-livekit.sh || true
+
+log "Host firewall (sudo) for HTTP/HTTPS/WebRTC"
+open_fw "${HTTP_PORT}/tcp"
+open_fw "${HTTPS_PORT}/tcp"
+open_fw 443/tcp
+open_fw 7880/tcp
+open_fw 7881/tcp
+open_fw 7882/udp
+open_fw 3478/udp
+open_fw 3478/tcp
+need_cmd firewall-cmd && sudo firewall-cmd --reload || true
 
 started=0
 for attempt in 1 2 3 4; do
-  log "Starting stack on :${HTTP_PORT} (attempt ${attempt})"
+  log "Starting stack HTTP :${HTTP_PORT}  HTTPS :${HTTPS_PORT} (attempt ${attempt})"
   if "${ENGINE[@]}" -f docker-compose.yml up -d --build; then
     started=1
     break
   fi
-  warn "Bind failed on :${HTTP_PORT} — moving to the next port"
+  warn "Bind failed on :${HTTP_PORT} — next port"
   force_next_http
-  set -a
-  # shellcheck disable=SC1091
-  source .env
-  set +a
+  set -a; source .env; set +a
 done
-[[ "$started" -eq 1 ]] || die "Could not publish Caddy on a free port"
+[[ "$started" -eq 1 ]] || die "Could not publish Caddy"
 
 # shellcheck disable=SC1091
 source "$INSTALL_DIR/scripts/wait-api.sh"
 wait_for_api || true
 
+log "Waiting for HTTPS :${HTTPS_PORT}"
+https_ok=0
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -skf --connect-timeout 1 --max-time 2 "https://127.0.0.1:${HTTPS_PORT}/api/health" >/dev/null; then
+    https_ok=1
+    break
+  fi
+  sleep 1
+done
+if [[ "$https_ok" -eq 1 ]]; then
+  log "HTTPS listening on :${HTTPS_PORT}"
+else
+  warn "HTTPS not answering yet — recreating Caddy"
+  "${ENGINE[@]}" -f docker-compose.yml up -d --force-recreate --no-deps caddy || true
+  sleep 3
+  if curl -skf --connect-timeout 1 --max-time 2 "https://127.0.0.1:${HTTPS_PORT}/api/health" >/dev/null; then
+    https_ok=1
+    log "HTTPS listening on :${HTTPS_PORT}"
+  else
+    warn "HTTPS still down. ss / caddy logs:"
+    ss -ltn | grep -E ":${HTTPS_PORT}|:443|:8088|:8090" || true
+    "${ENGINE[@]}" -f docker-compose.yml logs --tail=25 caddy || true
+  fi
+fi
+
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/dialdeck.service" <<EOF
 [Unit]
-Description=Dialdeck party line (survives Game Mode via linger)
+Description=Dialdeck party line
 After=network-online.target
-Wants=network-online.target
-
 [Service]
 Type=simple
 WorkingDirectory=${INSTALL_DIR}
@@ -250,50 +192,45 @@ Environment=HOME=%h
 ExecStart=${INSTALL_DIR}/scripts/watch.sh
 Restart=always
 RestartSec=8
-
 [Install]
 WantedBy=default.target
 EOF
 
 if need_cmd systemctl; then
   systemctl --user daemon-reload || true
-  systemctl --user enable --now dialdeck.service || warn "could not enable user service"
-  if confirm "Enable lingering so Dialdeck starts at boot and stays up in Game Mode (loginctl)?"; then
-    if ! loginctl enable-linger "$USER"; then
-      sudo loginctl enable-linger "$USER" || warn "could not enable linger"
-    fi
-  else
-    warn "Without linger, Game Mode / reboot may stop the stack until you open Desktop Mode."
+  systemctl --user enable --now dialdeck.service || true
+  if confirm "Enable lingering so Dialdeck stays up in Game Mode?"; then
+    loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER" || true
   fi
 fi
 
-# shellcheck disable=SC1091
-source "$INSTALL_DIR/scripts/configure-tailscale.sh" || warn "Tailscale step skipped or failed"
-set -a
-# shellcheck disable=SC1091
-source "$INSTALL_DIR/.env"
-set +a
-
+WAN_IP=$(curl -4 -fsS --max-time 8 https://api.ipify.org || true)
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-URL="http://localhost:${HTTP_PORT}"
-LAN_URL="http://${LAN_IP:-<lan-ip>}:${HTTP_PORT}"
-SHARE_URL="${PUBLIC_URL:-$LAN_URL}"
+HTTPS_LOCAL="https://127.0.0.1:${HTTPS_PORT}"
+HTTPS_LAN="https://${LAN_IP:-<lan>}:${HTTPS_PORT}"
+HTTPS_WAN="https://${WAN_IP:-<wan>}:${HTTPS_PORT}"
+HTTP_LOCAL="http://127.0.0.1:${HTTP_PORT}"
 
 cat > "$INSTALL_DIR/INSTALL.txt" <<EOF
 Dialdeck is up.
 
-This machine:  ${URL}
-On your LAN:   ${LAN_URL}
-Share URL:     ${SHARE_URL}
-Video:         VBR auto 480p–1080p60
-Reachability:  ${REACHABILITY_MODE:-local}
+HTTP  (chat / localhost media):  ${HTTP_LOCAL}
+HTTPS (voice + video + internet): ${HTTPS_LOCAL}
+      LAN:  ${HTTPS_LAN}
+      WAN:  ${HTTPS_WAN}
 
-Open the Share URL and enter a name. First name in is owner.
+HTTPS listening: $([[ "$https_ok" -eq 1 ]] && echo YES || echo NO)
+Video: VBR auto 480p-1080p60
+
+Friends: open the WAN HTTPS URL, accept the Firefox cert warning, type a name.
+Router forwards: ${HTTP_PORT}/tcp, ${HTTPS_PORT}/tcp, 443/tcp, 7880/tcp, 7881/tcp, 7882/udp, 3478/tcp+udp, 30000-30020/udp
 
 Game Mode: systemctl --user status dialdeck
-Uninstall:  ${INSTALL_DIR}/scripts/uninstall.sh
+Uninstall: ${INSTALL_DIR}/scripts/uninstall.sh
 EOF
 
+log "Listeners"
+ss -ltn | grep -E ":${HTTP_PORT}|:${HTTPS_PORT}|:443|:7880" || true
 log "Done"
 cat "$INSTALL_DIR/INSTALL.txt"
 
