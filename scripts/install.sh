@@ -135,8 +135,15 @@ fi
 cd "$INSTALL_DIR"
 chmod +x scripts/*.sh
 
+if confirm "Clear all user data (handles, chat, bans, uploads) and start over?"; then
+  log "Wiping compose volumes and local state"
+  "${ENGINE[@]}" -f docker-compose.yml down -v || true
+  rm -rf "$INSTALL_DIR/data"
+  log "User data cleared. First name in will be owner again."
+fi
+
 if [[ ! -f .env ]]; then
-  log "Generating secrets, invite code, and 1080p60 VBR media policy"
+  log "Generating secrets and 1080p60 VBR media policy"
   INVITE=$(openssl rand -hex 3)
   cat > .env <<EOF
 DOMAIN=localhost
@@ -155,7 +162,7 @@ MINIO_ROOT_PASSWORD=$(openssl rand -hex 16)
 
 LIVEKIT_API_KEY=devkey
 LIVEKIT_API_SECRET=$(openssl rand -hex 24)
-LIVEKIT_WS_URL=ws://localhost:${HTTP_PORT}/rtc
+LIVEKIT_WS_URL=ws://localhost:${HTTP_PORT}
 
 JWT_SECRET=$(openssl rand -hex 32)
 INVITE_CODE=${INVITE}
@@ -278,13 +285,10 @@ Dialdeck is up.
 This machine:  ${URL}
 On your LAN:   ${LAN_URL}
 Share URL:     ${SHARE_URL}
-Invite code:   ${INVITE_CODE}
 Video:         VBR auto 480p–1080p60
 Reachability:  ${REACHABILITY_MODE:-local}
 
-You: open the Share URL, Create account, enter the invite. First account is owner.
-Family on LAN: same LAN URL.
-Family off-LAN: install Tailscale, join this tailnet, open the Share URL.
+Open the Share URL and enter a name. First name in is owner.
 
 Game Mode: systemctl --user status dialdeck
 Uninstall:  ${INSTALL_DIR}/scripts/uninstall.sh
