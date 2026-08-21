@@ -1,0 +1,8 @@
+{
+  "name": "dialdeck-decky",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "echo \"Build with decky-frontend-lib / @decky/ui when developing on a Deck\""
+  }
+}

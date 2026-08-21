@@ -1,0 +1,10 @@
+{
+  "name": "Dialdeck",
+  "author": "dialdeck",
+  "flags": ["debug"],
+  "publish": {
+    "tags": ["chat", "voice", "webrtc"],
+    "description": "Pick up the Dialdeck party line from Game Mode.",
+    "image": null
+  }
+}
