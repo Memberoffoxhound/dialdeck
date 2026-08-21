@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Install Decky plugin. sudo is used automatically when the dir is not writable.
-# Password prompt from sudo is the permission ask.
+# Install Decky plugin with sudo, then put ownership back how Decky left it.
 
 if ! declare -f log >/dev/null; then
   log() { printf "\n\033[1;32m==>\033[0m %s\n" "$*"; }
@@ -13,6 +12,7 @@ install_decky_plugin() {
   local plug="$hb/plugins"
   local dest="$plug/dialdeck"
   local src="${INSTALL_DIR:-$HOME/.local/share/dialdeck}/apps/decky"
+  local owner=""
 
   if [[ ! -e "$hb" && ! -e "$plug" ]]; then
     return 0
@@ -20,26 +20,27 @@ install_decky_plugin() {
 
   log "Decky Loader detected at $hb"
 
+  if [[ -d "$plug" ]]; then
+    owner=$(stat -c '%u:%g' "$plug" 2>/dev/null || stat -f '%u:%g' "$plug")
+  elif [[ -d "$hb" ]]; then
+    owner=$(stat -c '%u:%g' "$hb" 2>/dev/null || stat -f '%u:%g' "$hb")
+  fi
+
   if [[ ! -d "$plug" ]]; then
     mkdir -p "$plug" 2>/dev/null || sudo mkdir -p "$plug"
   fi
 
-  if [[ ! -w "$plug" ]]; then
-    log "Fixing ownership of $plug (sudo will ask for your password)"
-    sudo chown -R "$USER:$USER" "$plug" || sudo chown -R "$USER:$USER" "$hb"
+  log "Installing plugin (sudo may ask for your password)"
+  sudo mkdir -p "$dest"
+  sudo cp -a "$src/." "$dest/"
+
+  if [[ -n "$owner" ]]; then
+    log "Restoring Decky ownership ${owner} on $plug"
+    sudo chown -R "$owner" "$dest"
+    sudo chown "$owner" "$plug" 2>/dev/null || true
   fi
 
-  if [[ ! -w "$plug" ]]; then
-    log "Still not writable — copying with sudo"
-    sudo mkdir -p "$dest"
-    sudo cp -a "$src/." "$dest/"
-    sudo chown -R "$USER:$USER" "$dest" || true
-  else
-    mkdir -p "$dest"
-    cp -a "$src/." "$dest/"
-  fi
-
-  log "Plugin files in $dest"
+  log "Plugin files in $dest (owner restored to ${owner:-unchanged})"
 
   if need_cmd pnpm && [[ -w "$dest" ]]; then
     (cd "$dest" && pnpm i && pnpm build) || warn "plugin build failed"
