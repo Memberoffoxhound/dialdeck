@@ -225,16 +225,9 @@ for attempt in 1 2 3 4; do
 done
 [[ "$started" -eq 1 ]] || die "Could not publish Caddy on a free port"
 
-log "Waiting for API"
-for i in $(seq 1 60); do
-  if curl -sf "http://127.0.0.1:${HTTP_PORT}/api/health" >/dev/null; then
-    break
-  fi
-  sleep 2
-  if [[ "$i" -eq 60 ]]; then
-    warn "API did not become healthy in 120s — ${ENGINE[*]} -f docker-compose.yml logs"
-  fi
-done
+# shellcheck disable=SC1091
+source "$INSTALL_DIR/scripts/wait-api.sh"
+wait_for_api || true
 
 mkdir -p "$HOME/.config/systemd/user"
 cat > "$HOME/.config/systemd/user/dialdeck.service" <<EOF
