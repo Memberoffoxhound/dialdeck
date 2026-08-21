@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Install Dialdeck
+Comment=One-stop Dialdeck installer for Bazzite (Podman/Docker, linger, Tailscale)
+Exec=bash -lc "bash <(curl -fsSL https://raw.githubusercontent.com/Memberoffoxhound/dialdeck/main/scripts/install.sh); echo; echo Press Enter to close; read"
+Icon=network-server
+Terminal=true
+Categories=Network;AudioVideo;
+StartupNotify=true

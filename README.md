@@ -2,83 +2,50 @@
 
 **Self-hosted Discord for friends and family.** Phone pun: *dial* + Steam *Deck*.
 
-One command on the Bazzite box. Everyone else opens the PWA, creates an account with the invite code, and talks.
+One package on the Bazzite box. Everyone else opens the PWA, creates an account, and talks.
 
 Repository: https://github.com/Memberoffoxhound/dialdeck
 
-## One-stop install
+## Download for Bazzite
 
-Prefer this so prompts still work (`curl | bash` reads answers from the terminal):
+1. Get [Install-Dialdeck.desktop](https://raw.githubusercontent.com/Memberoffoxhound/dialdeck/main/packaging/bazzite/Install-Dialdeck.desktop) (or the whole [packaging/bazzite](https://github.com/Memberoffoxhound/dialdeck/tree/main/packaging/bazzite) folder).
+2. Mark it executable (Dolphin → Properties → executable).
+3. Double-click. A terminal asks before it changes anything.
+
+Same thing from Konsole:
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/Memberoffoxhound/dialdeck/main/scripts/install.sh)
 ```
 
-The installer **asks before it changes the system**. In order it will:
+The installer will:
 
-1. Use Docker Compose or Podman Compose if already present
-2. If not: offer a user-space compose binary + existing **Podman** (no OS rebase)
-3. If you want Docker: offer `ujust setup-docker` / `install-docker` when those recipes exist
-4. Last resort: ask to `rpm-ostree install moby-engine docker-compose` (sudo + reboot, then run the installer again)
-5. Ask to add you to the `docker` group if needed
-6. Clone to `~/.local/share/dialdeck`, generate secrets + invite code
-7. Build and start the stack (Caddy, PWA, API, LiveKit, Postgres, Redis, MinIO)
-8. Install `dialdeck.service` and ask to **enable linger** so Game Mode / reboot keeps the line up
-9. Copy the Decky plugin if Decky Loader is present, and build it when `pnpm` exists
+- Use or install Podman/Docker compose (asks first)
+- Generate invite + secrets, start the stack
+- Enable a user service + **linger** so Game Mode / reboot keep it up
+- Ask to enable **Tailscale** (already on Bazzite), log this machine in, and `serve` HTTPS on your tailnet
+- Install the Decky plugin if Decky is present
 
-Friends only open `http://<lan-ip>:8080`, tap **Create account**, enter the invite from `~/.local/share/dialdeck/INSTALL.txt`.
+Friends on the LAN use `http://<lan-ip>:8080`. Friends off-LAN install Tailscale, join the same tailnet, and use the printed `https://....ts.net` URL.
 
 Uninstall: `~/.local/share/dialdeck/scripts/uninstall.sh`
 
-### Game Mode
+## Video
 
-Linger + `scripts/watch.sh` (Restart=always) is what keeps the stack alive when you boot or switch into Game Mode. Check:
-
-```bash
-loginctl show-user "$USER" | grep Linger
-systemctl --user status dialdeck
-```
-
-Without linger, Desktop Mode must have logged in once or the user service never starts.
-
-## Video (audience)
-
-VBR, auto layer. Not 4K yet.
-
-| Layer | Size | fps | VBR ceiling |
-| --- | --- | --- | --- |
-| q | 480p | 30 | 1.0 Mbps |
-| h | 720p | 60 | 2.5 Mbps |
-| f | 1080p | 60 | 4.5 Mbps |
-
-LiveKit forwards the best layer each viewer can take. See `apps/web/src/media.ts`.
-
-## Decky QAM
-
-The plugin polls `/api/stats` plus host NIC counters:
-
-- quality: excellent / good / fair / poor / down (from RTT)
-- RTT in ms
-- ↓/↑ Mb/s on the default route iface
-- user + session counts
-- video policy line
-
-Default URL is `http://127.0.0.1:8080` (same box).
+VBR auto layer: 480p30 → 720p60 → 1080p60.
 
 ## Status
 
-- [x] One-stop installer with permission prompts
-- [x] Game Mode linger + health watchdog
-- [x] Persistent accounts, invite, chat
-- [x] Decky stats panel
-- [x] 480p–1080p60 VBR policy + token path
-- [ ] LiveKit JS client in the PWA (actual send/receive)
-- [ ] RNNoise
-- [ ] Uploads / GIF search
+- [x] One-stop Bazzite installer + desktop launcher
+- [x] Game Mode linger + watchdog
+- [x] Guided Tailscale + Serve
+- [x] Accounts, chat, party-line mic/screen
+- [x] Decky stats
+- [ ] RNNoise, uploads/GIF, owner reachability UI
 
 ## Docs
 
-- [Architecture](docs/ARCHITECTURE.md)
+- [Tailscale](docs/TAILSCALE.md)
 - [Media](docs/MEDIA.md)
 - [Hosting](docs/HOSTING.md)
 - [Decky](docs/DECKY.md)
