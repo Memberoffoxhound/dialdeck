@@ -8,8 +8,10 @@
   }
 
   handle /rtc* {
+    uri strip_prefix /rtc
     reverse_proxy livekit:7880 {
       header_up Host {host}
+      header_up X-Forwarded-Proto {scheme}
       header_up Connection {>Connection}
       header_up Upgrade {>Upgrade}
       flush_interval -1
