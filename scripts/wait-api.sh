@@ -1,34 +1,36 @@
 #!/usr/bin/env bash
-# Probe the published Caddy port without hanging on a foreign listener.
+# Fast health probe. Never hang more than ~15s.
 
 probe() {
-  local p="$1"
-  curl -sf --connect-timeout 1 --max-time 2 "http://127.0.0.1:${p}/api/health" >/dev/null 2>&1
+  curl -sf --connect-timeout 1 --max-time 1 "$1" >/dev/null 2>&1
+}
+
+published_http() {
+  local line
+  line=$("${ENGINE[@]}" -f docker-compose.yml port caddy 8080 2>/dev/null | head -1 || true)
+  if [[ "$line" =~ :([0-9]+)$ ]]; then
+    echo "${BASH_REMATCH[1]}"
+  fi
 }
 
 wait_for_api() {
-  local i p
-  local ports=("${HTTP_PORT:-8080}" 8080 8088 8090 8180 9080 18080)
-  log "Waiting for API (2s timeout per probe)"
-  for i in $(seq 1 20); do
+  local i p mapped
+  mapped=$(published_http || true)
+  local ports=("${mapped}" "${HTTP_PORT:-}" 8088 8080 8090)
+  log "Waiting for API (max ~15s)"
+  for i in 1 2 3 4 5 6 7 8; do
     for p in "${ports[@]}"; do
-      if probe "$p"; then
+      [[ -z "$p" ]] && continue
+      if probe "http://127.0.0.1:${p}/api/health"; then
         HTTP_PORT="$p"
         export HTTP_PORT
-        if declare -f rewrite_env_port >/dev/null; then
-          rewrite_env_port "$HTTP_PORT" "${HTTPS_PORT:-8443}"
-        fi
+        declare -f rewrite_env_port >/dev/null && rewrite_env_port "$HTTP_PORT" "${HTTPS_PORT:-8443}"
         log "API healthy on :${HTTP_PORT}"
         return 0
       fi
     done
-    if (( i == 5 || i == 10 || i == 15 )); then
-      warn "Still waiting (${i}/20). Last api/caddy logs:"
-      "${ENGINE[@]}" -f docker-compose.yml logs --tail 15 api caddy 2>/dev/null || true
-    fi
-    sleep 2
+    sleep 1
   done
-  warn "API health did not answer. Stack may still be usable — check logs."
-  "${ENGINE[@]}" -f docker-compose.yml logs --tail 40 api caddy 2>/dev/null || true
+  warn "Health probe timed out — continuing. Containers are up; finish with scripts/finish-install.sh if needed."
   return 1
 }
