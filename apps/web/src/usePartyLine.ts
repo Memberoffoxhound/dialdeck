@@ -28,6 +28,20 @@ export type DeviceList = {
   outs: MediaDeviceInfo[];
 };
 
+const RTC_CONFIG: RTCConfiguration = {
+  iceServers: [
+    {
+      urls: [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun2.l.google.com:19302",
+        "stun:stun.cloudflare.com:3478"
+      ]
+    }
+  ],
+  iceTransportPolicy: "all"
+};
+
 export function usePartyLine(device: string) {
   const roomRef = useRef<Room | null>(null);
   const localTracks = useRef<LocalTrack[]>([]);
@@ -159,7 +173,8 @@ export function usePartyLine(device: string) {
       adaptiveStream: true,
       dynacast: true,
       publishDefaults: publishOptions(),
-      stopLocalTrackOnUnpublish: true
+      stopLocalTrackOnUnpublish: true,
+      rtcConfig: RTC_CONFIG
     });
     roomRef.current = room;
     room.on(RoomEvent.TrackSubscribed, (track, _p, p: RemoteParticipant) => {
@@ -178,7 +193,7 @@ export function usePartyLine(device: string) {
       setLive(false);
       setStatus("idle");
     });
-    await room.connect(url, tokenBody.token, { autoSubscribe: true });
+    await room.connect(url, tokenBody.token, { autoSubscribe: true, rtcConfig: RTC_CONFIG });
     setLive(true);
     setStatus("live");
     refreshPeers(room);
