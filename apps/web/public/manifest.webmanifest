@@ -1,0 +1,12 @@
+{
+  "name": "Dialdeck",
+  "short_name": "Dialdeck",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#0b0d12",
+  "description": "Pick up the line. Self-hosted voice, video, and chat.",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
