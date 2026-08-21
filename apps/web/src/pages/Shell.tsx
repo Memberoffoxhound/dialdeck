@@ -42,7 +42,8 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
       body: JSON.stringify({ text })
     });
     if (!res.ok) return;
-    setMessages((m) => [...m, await res.json()]);
+    const msg = await res.json();
+    setMessages((m) => [...m, msg]);
     setDraft("");
   }
 
