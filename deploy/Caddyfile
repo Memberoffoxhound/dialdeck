@@ -7,18 +7,24 @@
     reverse_proxy api:3000
   }
 
-  @livekit path /rtc /rtc/* /twirp/*
-  handle @livekit {
+  handle /rtc* {
     reverse_proxy livekit:7880 {
-      header_up Host livekit:7880
+      header_up Host {host}
       header_up X-Forwarded-Proto {scheme}
+      header_up X-Forwarded-For {remote_host}
       header_up Connection {>Connection}
       header_up Upgrade {>Upgrade}
       transport http {
         versions 1.1
+        read_timeout 3600s
+        write_timeout 3600s
       }
       flush_interval -1
     }
+  }
+
+  handle /twirp* {
+    reverse_proxy livekit:7880
   }
 
   handle {

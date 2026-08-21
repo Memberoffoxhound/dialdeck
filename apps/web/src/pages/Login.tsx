@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Session } from "../App";
 
-type Day = { day: string; hi: number; lo: number; take: string; icon?: string };
+type Day = { day: string; hi: number; lo: number; icon?: string };
 type Fun = {
   place: string;
   temp: number | null;
@@ -14,7 +14,7 @@ type Fun = {
 
 function weekday(iso: string) {
   const d = new Date(`${iso}T12:00:00`);
-  return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  return d.toLocaleDateString(undefined, { weekday: "short" });
 }
 
 async function locate() {
@@ -64,7 +64,8 @@ export default function Login({
         if (loc.city) q.set("city", loc.city);
       }
       q.set("isDay", hour >= 6 && hour < 20 ? "1" : "0");
-      const res = await fetch(`/api/fun?${q}`);
+      q.set("_", String(Date.now()));
+      const res = await fetch(`/api/fun?${q}`, { cache: "no-store" });
       setFun(await res.json());
     })().catch(() => {});
   }, []);
@@ -106,12 +107,11 @@ export default function Login({
           <ul className="forecast">
             {(fun?.days ?? []).map((d) => (
               <li key={d.day}>
-                <span className="wx-icon sm">{d.icon ?? "☁\ufe0f"}</span>
+                <span className="wx-icon day">{d.icon ?? "☁\ufe0f"}</span>
                 <em>{weekday(d.day)}</em>
                 <strong>
                   {Math.round(d.hi)}/{Math.round(d.lo)}
                 </strong>
-                <span>{d.take}</span>
               </li>
             ))}
           </ul>
