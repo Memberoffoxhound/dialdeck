@@ -1,21 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Session } from "../App";
 
 const EMOJI = ["🐺", "😄", "🔥", "✅", "👍", "🎮", "💚", "🚀"];
 
-type Msg = { who: string; text: string; at: string };
+type Msg = { id?: string; who: string; text: string; at: string };
 
 export default function Shell({ session, onLeave }: { session: Session; onLeave: () => void }) {
   const [room, setRoom] = useState("lounge");
   const [draft, setDraft] = useState("");
   const [gif, setGif] = useState("");
-  const [messages, setMessages] = useState<Msg[]>([
-    {
-      who: "dialdeck",
-      text: "Spaces on the left. Unlimited rooms. This session is tagged so a PC stream and a phone mic can both be you.",
-      at: "now"
-    }
-  ]);
+  const [messages, setMessages] = useState<Msg[]>([]);
   const [inCall, setInCall] = useState(false);
   const [inputGain, setInputGain] = useState(80);
   const [outputGain, setOutputGain] = useState(80);
@@ -25,24 +19,45 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
     kit: 80
   });
 
-  function send(text = draft) {
+  useEffect(() => {
+    let stop = false;
+    async function load() {
+      const res = await fetch(`/api/rooms/${room}/messages`, { credentials: "include" });
+      if (!res.ok || stop) return;
+      const body = await res.json();
+      setMessages(body.messages ?? []);
+    }
+    void load();
+    const t = setInterval(() => void load(), 2500);
+    return () => {
+      stop = true;
+      clearInterval(t);
+    };
+  }, [room]);
+
+  async function send(text = draft) {
     if (!text.trim()) return;
-    setMessages((m) => [...m, { who: session.username, text, at: "now" }]);
+    const res = await fetch(`/api/rooms/${room}/messages`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) return;
+    const msg = await res.json();
+    setMessages((m) => [...m, msg]);
     setDraft("");
   }
 
   return (
     <div className="shell">
       <aside className="rail">
-        <div className="space active" title="Foxhound House">
-          FH
-        </div>
-        <div className="space" title="New space">
-          +
+        <div className="space active" title="Party line">
+          PL
         </div>
       </aside>
       <aside className="channels">
-        <h2>Foxhound House</h2>
+        <h2>Party line</h2>
         <small style={{ color: "var(--dim)" }}>TEXT</small>
         {["lounge", "ops"].map((r) => (
           <button key={r} className={`room ${room === r ? "active" : ""}`} onClick={() => setRoom(r)}>
@@ -75,8 +90,8 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
           ) : null}
         </div>
         <div className="messages">
-          {messages.map((m, i) => (
-            <div className="msg" key={i}>
+          {messages.map((m) => (
+            <div className="msg" key={m.id ?? `${m.who}-${m.at}-${m.text}`}>
               <span className="who">{m.who}</span>
               <span className="meta">{m.at}</span>
               <div>{m.text}</div>
@@ -86,9 +101,7 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
             <div className="msg">
               <span className="who">media</span>
               <div>
-                {session.device === "pc"
-                  ? "This session would publish the 4K/120 ladder (simulcast). Phone sessions of the same user keep the mic."
-                  : "This session would publish Opus + RNNoise and subscribe to everyone else’s tracks."}
+                Token path is live. Wire the LiveKit JS client next so this session publishes for real.
               </div>
             </div>
           ) : null}
@@ -100,12 +113,12 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
             </button>
           ))}
           <input
-            placeholder="GIF search (local + optional Klipy)"
+            placeholder="GIF search (coming — uploads next)"
             value={gif}
             onChange={(e) => setGif(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && gif.trim()) {
-                send(`GIF · ${gif.trim()}`);
+                void send(`GIF · ${gif.trim()}`);
                 setGif("");
               }
             }}
@@ -115,7 +128,7 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
           className="composer"
           onSubmit={(e) => {
             e.preventDefault();
-            send();
+            void send();
           }}
         >
           <input
@@ -138,7 +151,7 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
         </label>
         <div className="person">
           <strong>You · {session.device}</strong>
-          <div className="session-tag">RNNoise on · multi-session ready</div>
+          <div className="session-tag">same login on phone + PC = two sessions</div>
         </div>
         {Object.entries(volumes).map(([id, vol]) => (
           <div className="person" key={id}>
