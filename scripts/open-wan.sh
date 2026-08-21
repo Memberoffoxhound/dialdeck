@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Point Dialdeck at your public IP and open the host firewall.
-# Router must already forward 8090/tcp, 7880/tcp, 7881/tcp, 7882/udp here.
+# Keep Dialdeck reachable from the internet while the stack is running.
 set -euo pipefail
 INSTALL_DIR="${DIALDECK_HOME:-$HOME/.local/share/dialdeck}"
 cd "$INSTALL_DIR"
@@ -12,12 +11,12 @@ set +a
 HTTP_PORT="${HTTP_PORT:-8090}"
 
 WAN_IP=$(curl -4 -fsS --max-time 8 https://api.ipify.org || curl -4 -fsS --max-time 8 https://ifconfig.me || true)
-WAN_IP="${WAN_IP:-}"
+WAN_IP="${DIALDECK_WAN_IP:-$WAN_IP}"
 if [[ -z "$WAN_IP" ]]; then
-  echo "Could not detect public IP. Set it:  DIALDECK_WAN_IP=x.x.x.x bash scripts/open-wan.sh"
+  echo "Could not detect public IP. DIALDECK_WAN_IP=x.x.x.x bash scripts/open-wan.sh"
   exit 1
 fi
-WAN_IP="${DIALDECK_WAN_IP:-$WAN_IP}"
+export WAN_IP
 PUBLIC_URL="http://${WAN_IP}:${HTTP_PORT}"
 
 tmp=$(mktemp)
@@ -31,18 +30,27 @@ mv "$tmp" .env
 
 bash scripts/write-livekit.sh
 
+open_port() {
+  local spec="$1"
+  if command -v firewall-cmd >/dev/null; then
+    sudo firewall-cmd --permanent --add-port="$spec" || true
+  elif command -v ufw >/dev/null; then
+    sudo ufw allow "$spec" || true
+  fi
+}
+open_port "${HTTP_PORT}/tcp"
+open_port 7880/tcp
+open_port 7881/tcp
+open_port 7882/udp
+open_port 3478/udp
+open_port 3478/tcp
+open_port 30000-30020/udp
 if command -v firewall-cmd >/dev/null; then
-  sudo firewall-cmd --permanent --add-port="${HTTP_PORT}/tcp" || true
-  sudo firewall-cmd --permanent --add-port=7880/tcp || true
-  sudo firewall-cmd --permanent --add-port=7881/tcp || true
-  sudo firewall-cmd --permanent --add-port=7882/udp || true
   sudo firewall-cmd --reload || true
-elif command -v ufw >/dev/null; then
-  sudo ufw allow "${HTTP_PORT}/tcp" || true
-  sudo ufw allow 7880/tcp || true
-  sudo ufw allow 7881/tcp || true
-  sudo ufw allow 7882/udp || true
 fi
+
+loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER" || true
+systemctl --user enable --now dialdeck.service 2>/dev/null || true
 
 if command -v docker-compose >/dev/null || docker compose version >/dev/null 2>&1; then
   COMPOSE=(docker-compose)
@@ -51,17 +59,18 @@ if command -v docker-compose >/dev/null || docker compose version >/dev/null 2>&
 fi
 
 cat > INSTALL.txt <<EOF
-Dialdeck is on the public internet via port forwarding.
+Dialdeck stays on the public internet while this machine is running.
 
-Share this URL:  ${PUBLIC_URL}
+Share:  ${PUBLIC_URL}
 
-Router must forward to this machine:
-  ${HTTP_PORT}/tcp  PWA
-  7880/tcp         voice signaling
-  7881/tcp         WebRTC ICE TCP
-  7882/udp         WebRTC media
+Router forwards to this box:
+  ${HTTP_PORT}/tcp   PWA
+  7880/tcp          signaling
+  7881/tcp          ICE TCP
+  7882/udp          media
+  3478/udp+tcp      TURN
+  30000-30020/udp   TURN relay
 
-Friends open ${PUBLIC_URL} and type a name.
-You on the LAN can keep using http://127.0.0.1:${HTTP_PORT}
+Linger is on so Game Mode / reboot keep the user service.
 EOF
 cat INSTALL.txt

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# LiveKit STUN + WAN ICE. Override with STUN_SERVERS in .env (comma-separated host:port).
 set -euo pipefail
 ROOT="${INSTALL_DIR:-$HOME/.local/share/dialdeck}"
 cd "$ROOT"
@@ -9,6 +8,12 @@ set -a
 set +a
 
 STUN_SERVERS="${STUN_SERVERS:-stun.l.google.com:19302,stun1.l.google.com:19302,stun2.l.google.com:19302,stun.cloudflare.com:3478}"
+WAN_IP="${DIALDECK_WAN_IP:-${WAN_IP:-}}"
+if [[ -z "$WAN_IP" ]]; then
+  WAN_IP=$(curl -4 -fsS --max-time 8 https://api.ipify.org || true)
+fi
+WAN_IP="${WAN_IP:-127.0.0.1}"
+
 STUN_YAML=""
 IFS=',' read -ra _stuns <<<"$STUN_SERVERS"
 for s in "${_stuns[@]}"; do
@@ -30,7 +35,13 @@ rtc:
   use_external_ip: true
   enable_loopback_candidate: true
   stun_servers:
-${STUN_YAML}keys:
+${STUN_YAML}turn:
+  enabled: true
+  domain: ${WAN_IP}
+  udp_port: 3478
+  relay_range_start: 30000
+  relay_range_end: 30020
+keys:
   ${LIVEKIT_API_KEY:-devkey}: ${LIVEKIT_API_SECRET:-secretsecretsecretsecretsecretsecre}
 logging:
   level: info
@@ -42,4 +53,4 @@ room:
     - mime: video/h264
     - mime: video/av1
 EOF
-echo "Wrote LiveKit STUN: ${STUN_SERVERS}"
+echo "Wrote LiveKit STUN + TURN domain=${WAN_IP}"
