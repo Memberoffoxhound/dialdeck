@@ -73,8 +73,10 @@ services:
     command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro,z
+      - ./deploy/tls:/certs:ro,z
     ports:
       - "${HTTP_PORT:-8090}:8080"
+      - "${HTTPS_PORT:-8443}:8443"
     extra_hosts:
       - "livekit:host-gateway"
     depends_on:
