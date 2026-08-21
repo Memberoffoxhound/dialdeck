@@ -77,7 +77,8 @@ services:
       - ./scripts/caddy-start.sh:/opt/caddy-start.sh:ro,z
     ports:
       - "${HTTP_PORT:-8090}:8080"
-      - "${HTTPS_PORT:-8443}:8443"
+      - "8443:8443"
+      - "443:8443"
     extra_hosts:
       - "livekit:host-gateway"
     depends_on:
