@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Session } from "../App";
+import { usePartyLine } from "../usePartyLine";
 
 const EMOJI = ["🐺", "😄", "🔥", "✅", "👍", "🎮", "💚", "🚀"];
 
@@ -10,14 +11,10 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
   const [draft, setDraft] = useState("");
   const [gif, setGif] = useState("");
   const [messages, setMessages] = useState<Msg[]>([]);
-  const [inCall, setInCall] = useState(false);
   const [inputGain, setInputGain] = useState(80);
   const [outputGain, setOutputGain] = useState(80);
-  const [volumes, setVolumes] = useState({
-    bruce_pc: 100,
-    bruce_phone: 100,
-    kit: 80
-  });
+  const [volumes, setVolumes] = useState<Record<string, number>>({});
+  const line = usePartyLine(session.device);
 
   useEffect(() => {
     let stop = false;
@@ -35,6 +32,10 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
     };
   }, [room]);
 
+  useEffect(() => {
+    line.setMasterOut(outputGain);
+  }, [outputGain, line]);
+
   async function send(text = draft) {
     if (!text.trim()) return;
     const res = await fetch(`/api/rooms/${room}/messages`, {
@@ -47,6 +48,19 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
     const msg = await res.json();
     setMessages((m) => [...m, msg]);
     setDraft("");
+  }
+
+  async function toggleCall() {
+    if (line.live) {
+      await line.leave();
+      return;
+    }
+    setRoom("party-line");
+    try {
+      await line.join();
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   return (
@@ -66,30 +80,45 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
         ))}
         <small style={{ color: "var(--dim)" }}>VOICE</small>
         <button
-          className={`room ${room === "party-line" ? "active" : ""}`}
+          className={`room ${room === "party-line" || line.live ? "active" : ""}`}
           onClick={() => setRoom("party-line")}
         >
-          ◉ party-line
+          ◉ party-line {line.live ? `· ${line.status}` : ""}
         </button>
         <div style={{ marginTop: "auto", paddingTop: "1rem" }}>
           <div className="session-tag">
             {session.username} · {session.device} · {session.role}
           </div>
-          <button onClick={onLeave} style={{ marginTop: "0.4rem", width: "100%" }}>
+          <button
+            onClick={() => {
+              void line.leave();
+              onLeave();
+            }}
+            style={{ marginTop: "0.4rem", width: "100%" }}
+          >
             hang up
           </button>
         </div>
       </aside>
       <main className="main">
         <div className="topbar">
-          <strong>{room === "party-line" ? "◉ party-line" : `# ${room}`}</strong>
-          {room === "party-line" ? (
-            <button className="primary" onClick={() => setInCall((v) => !v)}>
-              {inCall ? "leave voice" : session.device === "pc" ? "publish screen" : "publish mic"}
-            </button>
-          ) : null}
+          <strong>{room === "party-line" || line.live ? "◉ party-line" : `# ${room}`}</strong>
+          <button className="primary" onClick={() => void toggleCall()}>
+            {line.live
+              ? "leave voice"
+              : session.device === "pc"
+                ? "share screen + join"
+                : "join with mic"}
+          </button>
         </div>
+        <div id="dialdeck-stage" className="stage" hidden={!line.live} />
         <div className="messages">
+          {line.error ? (
+            <div className="msg">
+              <span className="who">line</span>
+              <div style={{ color: "var(--danger)" }}>{line.error}</div>
+            </div>
+          ) : null}
           {messages.map((m) => (
             <div className="msg" key={m.id ?? `${m.who}-${m.at}-${m.text}`}>
               <span className="who">{m.who}</span>
@@ -97,14 +126,6 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
               <div>{m.text}</div>
             </div>
           ))}
-          {inCall ? (
-            <div className="msg">
-              <span className="who">media</span>
-              <div>
-                Token path is live. Wire the LiveKit JS client next so this session publishes for real.
-              </div>
-            </div>
-          ) : null}
         </div>
         <div className="picker">
           {EMOJI.map((e) => (
@@ -151,15 +172,23 @@ export default function Shell({ session, onLeave }: { session: Session; onLeave:
         </label>
         <div className="person">
           <strong>You · {session.device}</strong>
-          <div className="session-tag">same login on phone + PC = two sessions</div>
+          <div className="session-tag">
+            {line.live ? `on the line · ${line.status}` : "VBR 480p–1080p60 when you join"}
+          </div>
         </div>
-        {Object.entries(volumes).map(([id, vol]) => (
-          <div className="person" key={id}>
-            <div>{id.replace("_", " · ")}</div>
+        {line.peers.map((p) => (
+          <div className="person" key={p.id}>
+            <div>
+              {p.name} {p.hasVideo ? "· video" : ""} {p.hasAudio ? "· audio" : ""}
+            </div>
             <input
               type="range"
-              value={vol}
-              onChange={(e) => setVolumes((v) => ({ ...v, [id]: Number(e.target.value) }))}
+              value={volumes[p.id] ?? 100}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                setVolumes((prev) => ({ ...prev, [p.id]: v }));
+                line.setPeerVolume(p.id, v);
+              }}
             />
           </div>
         ))}

@@ -118,7 +118,7 @@ input, textarea {
   font-weight: 800;
 }
 .space.active { border-color: var(--accent); box-shadow: 0 0 0 3px #7cffb233; }
-.channels { padding: 1rem; }
+.channels { padding: 1rem; display: flex; flex-direction: column; }
 .channels h2 { margin: 0 0 0.8rem; font-size: 1.05rem; }
 .room {
   width: 100%;
@@ -136,6 +136,14 @@ input, textarea {
   align-items: center;
   gap: 1rem;
 }
+.stage {
+  padding: 0.6rem 1rem 0;
+  display: grid;
+  gap: 0.5rem;
+  max-height: 42vh;
+  overflow: auto;
+}
+.stage[hidden] { display: none; }
 .messages {
   flex: 1;
   overflow: auto;
