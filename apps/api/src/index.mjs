@@ -35,6 +35,14 @@ function checkPassword(password, salt, hash) {
   return prev.length === next.length && timingSafeEqual(prev, next);
 }
 
+function livekitUrlFrom(req) {
+  const host = req.headers.host ?? "localhost:8080";
+  const xf = String(req.headers["x-forwarded-proto"] ?? "");
+  const origin = String(req.headers.origin ?? "");
+  const https = xf.includes("https") || origin.startsWith("https");
+  return `${https ? "wss" : "ws"}://${host}/rtc`;
+}
+
 function seedState() {
   return {
     users: [],
@@ -99,12 +107,13 @@ app.get("/api/stats", async () => {
   };
 });
 
-app.get("/api/meta", async () => ({
+app.get("/api/meta", async (req) => ({
   name: "dialdeck",
   registrationOpen: OPEN,
   inviteRequired: true,
   spaceName: state.spaces[0]?.name ?? "Party line",
-  video: VIDEO
+  video: VIDEO,
+  livekitUrl: livekitUrlFrom(req)
 }));
 
 app.post("/api/auth/register", async (req, reply) => {
@@ -243,7 +252,7 @@ app.post("/api/livekit/token", async (req, reply) => {
     canSubscribe: true,
     canPublishData: true
   });
-  return { token: await at.toJwt(), identity, video: VIDEO };
+  return { token: await at.toJwt(), identity, video: VIDEO, url: livekitUrlFrom(req) };
 });
 
 app.get("/api/reachability", async (req, reply) => {
@@ -254,6 +263,7 @@ app.get("/api/reachability", async (req, reply) => {
     publicUrl: process.env.PUBLIC_URL ?? "http://localhost:8080",
     inviteCode: INVITE,
     video: VIDEO,
+    livekitUrl: livekitUrlFrom(req),
     hints: [
       "local: friends on the same LAN use the printed LAN URL",
       "tailscale: install Tailscale on this box and on their phones",
