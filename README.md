@@ -2,82 +2,84 @@
 
 **Self-hosted Discord for friends and family.** Phone pun: *dial* + Steam *Deck*.
 
-You run one command on the Bazzite (or Linux) box. Everyone else opens the PWA, creates an account with the invite code, and talks.
+One command on the Bazzite box. Everyone else opens the PWA, creates an account with the invite code, and talks.
 
 Repository: https://github.com/Memberoffoxhound/dialdeck
 
-## Install on the host (Bazzite / SteamOS / Linux)
+## One-stop install
 
-On the machine that will stay on (your Bazzite box, Desktop Mode):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Memberoffoxhound/dialdeck/main/scripts/install.sh | bash
-```
-
-That script will:
-
-1. Use Docker Compose or Podman Compose (whichever is already on the box)
-2. Clone this repo to `~/.local/share/dialdeck`
-3. Generate passwords, LiveKit keys, and a family **invite code**
-4. Build and start Caddy, the PWA, the API, LiveKit, Postgres, Redis, MinIO
-5. Enable a systemd user service so it comes back after reboot (`loginctl enable-linger`)
-6. Print `INSTALL.txt` with the LAN URL and invite code
-7. Copy the Decky plugin sources if Decky Loader is installed
-
-Then:
-
-- You: open the printed URL, **Create account** (you become owner)
-- Family: same URL + invite code → create their own handle
-- Same person on PC + phone: log in twice; sessions are tagged `pc` / `phone` / `deck`
-
-Uninstall:
+Prefer this so prompts still work (`curl | bash` reads answers from the terminal):
 
 ```bash
-~/.local/share/dialdeck/scripts/uninstall.sh
+bash <(curl -fsSL https://raw.githubusercontent.com/Memberoffoxhound/dialdeck/main/scripts/install.sh)
 ```
 
-### What the installer cannot magic into existence
+The installer **asks before it changes the system**. In order it will:
 
-Bazzite is immutable. It usually already has **Podman**. It does **not** always have Docker. If compose is missing, the script stops and tells you to enable Docker in Bazzite Portal / `bazzite-dx`, or install `podman-compose`. It will not rebase your OS for you.
+1. Use Docker Compose or Podman Compose if already present
+2. If not: offer a user-space compose binary + existing **Podman** (no OS rebase)
+3. If you want Docker: offer `ujust setup-docker` / `install-docker` when those recipes exist
+4. Last resort: ask to `rpm-ostree install moby-engine docker-compose` (sudo + reboot, then run the installer again)
+5. Ask to add you to the `docker` group if needed
+6. Clone to `~/.local/share/dialdeck`, generate secrets + invite code
+7. Build and start the stack (Caddy, PWA, API, LiveKit, Postgres, Redis, MinIO)
+8. Install `dialdeck.service` and ask to **enable linger** so Game Mode / reboot keeps the line up
+9. Copy the Decky plugin if Decky Loader is present, and build it when `pnpm` exists
 
-Off-LAN access is still your choice: Tailscale is the easy one. The installer binds **8080** (http) and **8443** (https with a local CA) so it works rootless.
+Friends only open `http://<lan-ip>:8080`, tap **Create account**, enter the invite from `~/.local/share/dialdeck/INSTALL.txt`.
 
-## After install — user flow
+Uninstall: `~/.local/share/dialdeck/scripts/uninstall.sh`
 
-1. Open `http://<lan-ip>:8080` (Chrome / Safari / Deck browser)
-2. Create account + invite code from `INSTALL.txt`
-3. Optional: Add to Home Screen (PWA)
-4. Chat in `#lounge`. Voice button on `party-line` is wired to LiveKit tokens; the in-browser SFU client is the next slice
+### Game Mode
+
+Linger + `scripts/watch.sh` (Restart=always) is what keeps the stack alive when you boot or switch into Game Mode. Check:
+
+```bash
+loginctl show-user "$USER" | grep Linger
+systemctl --user status dialdeck
+```
+
+Without linger, Desktop Mode must have logged in once or the user service never starts.
+
+## Video (audience)
+
+VBR, auto layer. Not 4K yet.
+
+| Layer | Size | fps | VBR ceiling |
+| --- | --- | --- | --- |
+| q | 480p | 30 | 1.0 Mbps |
+| h | 720p | 60 | 2.5 Mbps |
+| f | 1080p | 60 | 4.5 Mbps |
+
+LiveKit forwards the best layer each viewer can take. See `apps/web/src/media.ts`.
+
+## Decky QAM
+
+The plugin polls `/api/stats` plus host NIC counters:
+
+- quality: excellent / good / fair / poor / down (from RTT)
+- RTT in ms
+- ↓/↑ Mb/s on the default route iface
+- user + session counts
+- video policy line
+
+Default URL is `http://127.0.0.1:8080` (same box).
 
 ## Status
 
-What the package does today:
-
-- [x] One-command host install + secrets + linger service
-- [x] Persistent accounts (scrypt), invite gate, first user = owner
-- [x] Persistent rooms + messages
-- [x] Ban / kick / mute API
-- [x] Multi-session cookies (PC + phone + Deck)
-- [x] PWA shell (gamer UI, emoji, volume mix)
-- [x] LiveKit server in the stack + token mint
-- [x] Decky plugin (QAM panel + route)
-
-Not done — do not tell family this is Discord-complete:
-
-- [ ] LiveKit client in the PWA (actual mic/screen)
-- [ ] RNNoise worklet
+- [x] One-stop installer with permission prompts
+- [x] Game Mode linger + health watchdog
+- [x] Persistent accounts, invite, chat
+- [x] Decky stats panel
+- [x] 480p–1080p60 VBR policy + token path
+- [ ] LiveKit JS client in the PWA (actual send/receive)
+- [ ] RNNoise
 - [ ] Uploads / GIF search
-- [ ] Reachability wizard in the owner UI
-- [ ] 4K120 publisher + WHIP ingest
-
-## Stack
-
-LiveKit, Caddy, Postgres, Redis, MinIO, Fastify, React PWA. All open source. See [NOTICE](NOTICE).
 
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md)
-- [Media / 4K120](docs/MEDIA.md)
+- [Media](docs/MEDIA.md)
 - [Hosting](docs/HOSTING.md)
 - [Decky](docs/DECKY.md)
 

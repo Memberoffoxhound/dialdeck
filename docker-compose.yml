@@ -54,6 +54,10 @@ services:
       LIVEKIT_HOST: http://livekit:7880
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
       REACHABILITY_MODE: ${REACHABILITY_MODE:-local}
+      VIDEO_MIN: ${VIDEO_MIN:-480p}
+      VIDEO_MAX: ${VIDEO_MAX:-1080p}
+      VIDEO_FPS: ${VIDEO_FPS:-60}
+      VIDEO_MODE: ${VIDEO_MODE:-vbr-auto}
     volumes:
       - api-data:/data
     depends_on:
