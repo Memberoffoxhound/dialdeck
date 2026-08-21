@@ -5,6 +5,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import cookie from "@fastify/cookie";
 import { AccessToken } from "livekit-server-sdk";
+import { funPayload } from "./fun.mjs";
 
 const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const STATE_FILE = path.join(DATA_DIR, "state.json");
@@ -38,7 +39,6 @@ function livekitUrlFrom(req) {
   const xf = String(req.headers["x-forwarded-proto"] ?? "");
   const origin = String(req.headers.origin ?? "");
   const https = xf.includes("https") || origin.startsWith("https");
-  // LiveKit client appends /rtc itself.
   return `${https ? "wss" : "ws"}://${host}`;
 }
 
@@ -333,56 +333,7 @@ app.get("/api/reachability", async (req, reply) => {
   };
 });
 
-app.get("/api/fun", async () => {
-  const weather = await fetch(
-    "https://api.open-meteo.com/v1/forecast?latitude=38.85&longitude=-90.01&current=temperature_2m,weather_code,wind_speed_10m&temperature_unit=fahrenheit"
-  )
-    .then((r) => r.json())
-    .catch(() => null);
-
-  let news = [];
-  try {
-    const rss = await fetch("https://www.gamespot.com/feeds/news/", {
-      headers: { "user-agent": "dialdeck/0.1" }
-    }).then((r) => r.text());
-    const items = [...rss.matchAll(/<item>[\s\S]*?<title><!\[CDATA\[(.*?)\]\]><\/title>[\s\S]*?<link>(.*?)<\/link>/g)].slice(
-      0,
-      6
-    );
-    news = items.map((m) => ({ title: m[1], url: m[2] }));
-    if (!news.length) {
-      const loose = [...rss.matchAll(/<item>[\s\S]*?<title>(.*?)<\/title>[\s\S]*?<link>(.*?)<\/link>/g)].slice(0, 6);
-      news = loose.map((m) => ({ title: m[1].replace(/<!\[CDATA\[|\]\]>/g, ""), url: m[2] }));
-    }
-  } catch {
-    news = [
-      { title: "Party line is live on the LAN", url: "#" },
-      { title: "Share a window without feeding back the deck", url: "#" }
-    ];
-  }
-
-  const code = weather?.current?.weather_code;
-  const sky =
-    code === 0
-      ? "Clear"
-      : code < 4
-        ? "Mostly clear"
-        : code < 50
-          ? "Haze / fog"
-          : code < 70
-            ? "Rain nearby"
-            : code < 80
-              ? "Snow"
-              : "Stormy";
-
-  return {
-    place: "Roxana, IL",
-    temp: weather?.current?.temperature_2m ?? null,
-    wind: weather?.current?.wind_speed_10m ?? null,
-    sky,
-    news
-  };
-});
+app.get("/api/fun", funPayload);
 
 const port = Number(process.env.PORT ?? 3000);
 await app.listen({ port, host: "0.0.0.0" });
