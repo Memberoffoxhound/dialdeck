@@ -125,7 +125,7 @@ fi
 
 if [[ -d "$INSTALL_DIR/.git" ]]; then
   log "Updating $INSTALL_DIR"
-  git -C "$INSTALL_DIR" pull --ff-only || warn "could not fast-forward; using existing tree"
+  git -C "$INSTALL_DIR" fetch origin main && git -C "$INSTALL_DIR" reset --hard origin/main || git -C "$INSTALL_DIR" pull --ff-only || warn "using existing tree"
 else
   log "Cloning into $INSTALL_DIR"
   mkdir -p "$(dirname "$INSTALL_DIR")"
@@ -209,13 +209,21 @@ room:
     - mime: video/av1
 EOF
 
-log "Starting stack on :${HTTP_PORT}"
-if ! "${ENGINE[@]}" -f docker-compose.yml up -d --build; then
-  warn "Compose failed — often a busy port. Rechecking."
-  choose_ports
-  set -a; source .env; set +a
-  "${ENGINE[@]}" -f docker-compose.yml up -d --build
-fi
+started=0
+for attempt in 1 2 3 4; do
+  log "Starting stack on :${HTTP_PORT} (attempt ${attempt})"
+  if "${ENGINE[@]}" -f docker-compose.yml up -d --build; then
+    started=1
+    break
+  fi
+  warn "Bind failed on :${HTTP_PORT} — moving to the next port"
+  force_next_http
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+done
+[[ "$started" -eq 1 ]] || die "Could not publish Caddy on a free port"
 
 log "Waiting for API"
 for i in $(seq 1 60); do
