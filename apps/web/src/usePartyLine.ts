@@ -42,6 +42,14 @@ const RTC_CONFIG: RTCConfiguration = {
   iceTransportPolicy: "all"
 };
 
+function needMedia() {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices) {
+    throw new Error(
+      "Voice and video need HTTPS. Open https://THIS-IP:8443 and accept the certificate (Firefox: Advanced → Accept)."
+    );
+  }
+}
+
 export function usePartyLine(device: string) {
   const roomRef = useRef<Room | null>(null);
   const localTracks = useRef<LocalTrack[]>([]);
@@ -148,6 +156,7 @@ export function usePartyLine(device: string) {
 
   const connect = useCallback(async () => {
     if (roomRef.current?.state === "connected") return roomRef.current;
+    needMedia();
     setError("");
     setStatus("connecting");
     const tokenRes = await fetch("/api/livekit/token", {
@@ -158,8 +167,10 @@ export function usePartyLine(device: string) {
     });
     const tokenBody = await tokenRes.json();
     if (!tokenRes.ok) throw new Error(tokenBody.error ?? "token failed");
-    const proto = location.protocol === "https:" ? "wss" : "ws";
-    const url = `${proto}://${location.hostname}:7880`;
+    const url =
+      location.protocol === "https:"
+        ? `wss://${location.host}`
+        : `ws://${location.hostname}:7880`;
 
     if (roomRef.current) {
       try {
@@ -222,6 +233,7 @@ export function usePartyLine(device: string) {
 
   const joinMic = useCallback(async () => {
     try {
+      needMedia();
       const mic = await createLocalAudioTrack({
         deviceId: micId || undefined,
         echoCancellation: true,
@@ -237,6 +249,7 @@ export function usePartyLine(device: string) {
 
   const shareCamera = useCallback(async () => {
     try {
+      needMedia();
       const cam = await createLocalVideoTrack({
         deviceId: camId || undefined,
         resolution: { width: 1280, height: 720, frameRate: 30 }
@@ -251,6 +264,7 @@ export function usePartyLine(device: string) {
   const shareDisplay = useCallback(
     async (surface: "monitor" | "window") => {
       try {
+        needMedia();
         const stream = await navigator.mediaDevices.getDisplayMedia(displayConstraints(surface));
         const tracks: LocalTrack[] = [];
         for (const raw of stream.getVideoTracks()) tracks.push(new LocalVideoTrack(raw, undefined, false));
