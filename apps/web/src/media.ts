@@ -39,9 +39,6 @@ export function publishOptions() {
   return {
     simulcast: true,
     videoEncoding: SIMULCAST_LAYERS.f.encoding,
-    videoSimulcastLayers: [SIMULCAST_LAYERS.h, SIMULCAST_LAYERS.q],
-    backupCodec: true,
-    screenShareEncoding: SIMULCAST_LAYERS.f.encoding,
-    screenShareSimulcastLayers: [SIMULCAST_LAYERS.h, SIMULCAST_LAYERS.q]
+    screenShareEncoding: SIMULCAST_LAYERS.f.encoding
   };
 }
