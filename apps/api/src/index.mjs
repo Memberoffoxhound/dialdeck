@@ -10,6 +10,14 @@ const DATA_DIR = process.env.DATA_DIR ?? "./data";
 const STATE_FILE = path.join(DATA_DIR, "state.json");
 const INVITE = process.env.INVITE_CODE ?? "family";
 const OPEN = (process.env.REGISTRATION_OPEN ?? "true") === "true";
+const STARTED = Date.now();
+
+const VIDEO = {
+  min: process.env.VIDEO_MIN ?? "480p",
+  max: process.env.VIDEO_MAX ?? "1080p",
+  fps: Number(process.env.VIDEO_FPS ?? 60),
+  mode: process.env.VIDEO_MODE ?? "vbr-auto"
+};
 
 const app = Fastify({ logger: true });
 await app.register(cors, { origin: true, credentials: true });
@@ -77,11 +85,26 @@ await load();
 
 app.get("/api/health", async () => ({ ok: true, name: "dialdeck" }));
 
+app.get("/api/stats", async () => {
+  const mem = process.memoryUsage();
+  return {
+    ok: true,
+    name: "dialdeck",
+    uptimeSec: Math.round((Date.now() - STARTED) / 1000),
+    users: state.users.length,
+    sessions: Object.keys(state.sessions).length,
+    rooms: state.spaces.reduce((n, s) => n + s.rooms.length, 0),
+    video: VIDEO,
+    memoryMB: Math.round(mem.rss / 1024 / 1024)
+  };
+});
+
 app.get("/api/meta", async () => ({
   name: "dialdeck",
   registrationOpen: OPEN,
   inviteRequired: true,
-  spaceName: state.spaces[0]?.name ?? "Party line"
+  spaceName: state.spaces[0]?.name ?? "Party line",
+  video: VIDEO
 }));
 
 app.post("/api/auth/register", async (req, reply) => {
@@ -220,7 +243,7 @@ app.post("/api/livekit/token", async (req, reply) => {
     canSubscribe: true,
     canPublishData: true
   });
-  return { token: await at.toJwt(), identity };
+  return { token: await at.toJwt(), identity, video: VIDEO };
 });
 
 app.get("/api/reachability", async (req, reply) => {
@@ -230,6 +253,7 @@ app.get("/api/reachability", async (req, reply) => {
     mode: process.env.REACHABILITY_MODE ?? "local",
     publicUrl: process.env.PUBLIC_URL ?? "http://localhost:8080",
     inviteCode: INVITE,
+    video: VIDEO,
     hints: [
       "local: friends on the same LAN use the printed LAN URL",
       "tailscale: install Tailscale on this box and on their phones",
