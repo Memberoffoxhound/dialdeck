@@ -1,0 +1,19 @@
+{
+  email off
+}
+
+{$DOMAIN:localhost} {
+  encode gzip
+
+  handle /api/* {
+    reverse_proxy api:3000
+  }
+
+  handle /rtc* {
+    reverse_proxy livekit:7880
+  }
+
+  handle {
+    reverse_proxy web:80
+  }
+}

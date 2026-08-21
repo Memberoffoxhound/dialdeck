@@ -1,0 +1,24 @@
+port: 7880
+bind_addresses:
+  - ""
+
+rtc:
+  tcp_port: 7881
+  port_range_start: 50000
+  port_range_end: 50100
+  use_external_ip: false
+  enable_loopback_candidate: true
+
+keys:
+  devkey: secretsecretsecretsecretsecretsecre
+
+logging:
+  level: info
+
+room:
+  enabled_codecs:
+    - mime: audio/opus
+    - mime: video/vp8
+    - mime: video/vp9
+    - mime: video/h264
+    - mime: video/av1
