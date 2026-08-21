@@ -22,54 +22,47 @@ function roast({ code, temp, wind, isDay }) {
   const lines = {
     clear: isDay
       ? [
-          `${deg} and naked sun. Shirt's optional. Dignity already left.`,
-          `Sun's out, dicks out energy. ${deg}. Hydrate or get cooked like a rotisserie slut.`,
-          t >= 92
-            ? `It's ${deg}. The pavement wants to fuck you. Stay inside and be horny in AC.`
-            : `Clear, ${deg}. Sky's showing off. You could go outside and still choose the couch. Iconic.`
+          `${deg} and not a cloud to hide your sins.`,
+          `Sun's out. ${deg}. Shirt optional. Ambition already quit.`,
+          t >= 90
+            ? `It's ${deg}. The asphalt wants a fight. Sit down.`
+            : `Clear, ${deg}. Go outside or admit you're a cave troll.`,
+          `Blue sky, ${deg}. Disgustingly nice. Don't waste it on laundry.`
         ]
       : [
-          `Moon's out, ${deg}. Prime weather to be a problem in the dark.`,
-          `Clear night, ${deg}. Good for stargazing or other horizontal hobbies.`,
-          t <= 32
-            ? `Pretty as hell and ${deg}. Cold enough to make nipples a personality.`
-            : `Night's clear. ${deg}. Nobody's watching. Don't waste it.`
+          `Moon's out, ${deg}. Perfect night to be a problem.`,
+          `Clear night, ${deg}. Nobody's watching. That's a warning.`,
+          t <= 32 ? `Pretty and ${deg}. Cold enough to ruin a mood.` : `Night's clear. ${deg}. Don't do anything you'd explain tomorrow.`
         ],
     fair: [
-      `${deg}, sun teasing through clouds like a cheap stripper. Commit or get off the stage.`,
-      isDay
-        ? `Half-cloud, ${deg}. Sky's edging you. Nobody finishes.`
-        : `Moon with a little cover. ${deg}. Soft lighting for bad decisions.`
+      `${deg}. Sun's half-assing it. Same as you.`,
+      isDay ? `A few clouds, ${deg}. Sky's indecisive. Iconic.` : `Moon with a hoodie. ${deg}. Soft lighting for bad ideas.`
     ],
     overcast: [
-      `Gray ceiling, ${deg}. The sky put on sweatpants and cancelled. Same.`,
-      `Overcast. ${deg}. Mood is unwashed sheets and leftover pizza.`
+      `Gray lid on. ${deg}. The sky cancelled and didn't text.`,
+      `Overcast. ${deg}. Sweatpants weather. No notes.`
     ],
     fog: [
-      `Fog so thick you could fuck in the street and get away with it. ${deg}.`,
-      `Can't see shit. ${deg}. Drive like your secrets are in the trunk.`
+      `Fog. ${deg}. Drive like you've got a body in the trunk.`,
+      `Can't see squat. ${deg}. The air is being extra.`
     ],
     drizzle: [
-      `Sky's pissing on you, just a little. ${deg}. Humiliating, not fatal.`,
-      `Drizzle. ${deg}. Wet enough to ruin the hair, not enough to skip the booty call.`
+      `Sky's leaking. ${deg}. Annoying, not impressive.`,
+      `Drizzle. ${deg}. Wet enough to ruin the hair, not the plans.`
     ],
     rain: [
-      `It's dumping. ${deg}. Stay in, get wet on purpose.`,
-      w >= 20
-        ? `Rain and ${w} mph. The sky is topping you. Tap out.`
-        : `Soaked. ${deg}. Perfect weather to cancel plans and be filthy at home.`
+      `Rain. ${deg}. Stay in. Be unproductive on purpose.`,
+      w >= 20 ? `Rain and ${w} mph. The sky is being a jerk. Tap out.` : `Soaked. ${deg}. Your shoes already lost.`
     ],
     snow: [
-      `Snow. ${deg}. Cute until it's in your crack and your will to live.`,
-      `White-out. ${deg}. If you're going out, you're either horny or stupid. Often both.`
+      `Snow. ${deg}. Cute for six minutes. Then it's a chore.`,
+      `White stuff. ${deg}. If you have to go out, you already lost.`
     ],
     storm: [
-      `Thunder. ${deg}. The sky's moaning. Unplug the tower and join it.`,
-      w >= 25
-        ? `Storm + ${w} mph. Nature's angry fuck. Don't be the afterthought.`
-        : `Lightning. ${deg}. If that's not a vibe, your blood's too clean.`
+      `Thunder. ${deg}. Unplug the tower and enjoy the tantrum.`,
+      w >= 25 ? `Storm + ${w} mph. Don't be the afterthought.` : `Lightning. ${deg}. Stay off the porch, genius.`
     ],
-    fallback: [`Sky's being a freak. ${deg}. Match the energy.`] 
+    fallback: [`Sky's being weird. ${deg}. Don't trust it.`] 
   };
   if (code == null) return pick(lines.fallback);
   if (code === 0) return pick(lines.clear);
@@ -125,7 +118,8 @@ async function loadNews() {
   }
 }
 
-export async function funPayload(req) {
+export async function funPayload(req, reply) {
+  reply?.header?.("cache-control", "no-store");
   const q = req.query ?? {};
   let lat = Number(q.lat);
   let lon = Number(q.lon);
@@ -146,8 +140,8 @@ export async function funPayload(req) {
   const weather = await fetch(
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,weather_code,wind_speed_10m,is_day` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,sunrise,sunset` +
-      `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=7&timezone=auto`
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max` +
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=5&timezone=auto`
   )
     .then((r) => r.json())
     .catch(() => null);
@@ -155,19 +149,12 @@ export async function funPayload(req) {
   const cur = weather?.current ?? {};
   const isDay = Number(q.isDay ?? cur.is_day ?? 1) === 1;
   const days =
-    weather?.daily?.time?.map((day, i) => {
-      const code = weather.daily.weather_code[i];
-      const hi = weather.daily.temperature_2m_max[i];
-      const lo = weather.daily.temperature_2m_min[i];
-      const wind = weather.daily.wind_speed_10m_max[i];
-      return {
-        day,
-        hi,
-        lo,
-        icon: iconFor(code, true),
-        take: roast({ code, temp: hi, wind, isDay: true })
-      };
-    }) ?? [];
+    weather?.daily?.time?.map((day, i) => ({
+      day,
+      hi: weather.daily.temperature_2m_max[i],
+      lo: weather.daily.temperature_2m_min[i],
+      icon: iconFor(weather.daily.weather_code[i], true)
+    })) ?? [];
 
   return {
     place: place || `${lat.toFixed(2)}, ${lon.toFixed(2)}`,
