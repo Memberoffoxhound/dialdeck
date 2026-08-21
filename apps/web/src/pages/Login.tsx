@@ -12,12 +12,12 @@ export default function Login({
   const [password, setPassword] = useState("");
   const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
-  const [spaceName, setSpaceName] = useState("Dialdeck");
+  const [spaceName, setSpaceName] = useState("Party line");
 
   useEffect(() => {
     void fetch("/api/meta")
       .then((r) => r.json())
-      .then((m) => setSpaceName(m.spaceName ?? "Dialdeck"))
+      .then((m) => setSpaceName(m.spaceName ?? "Party line"))
       .catch(() => {});
   }, []);
 
@@ -43,48 +43,45 @@ export default function Login({
 
   return (
     <div className="login">
+      <div className="login-art" aria-hidden="true" />
       <div className="login-card">
         <div className="brand">
           <div className="mark">D</div>
           <div>
             <strong>Dialdeck</strong>
             <br />
-            <small>{spaceName} · pick up the line</small>
+            <small>{spaceName}</small>
           </div>
         </div>
+        <h1>Pick up the line</h1>
+        <p className="lede">Same handle on PC, phone, and Deck. First account owns the house.</p>
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void submit("login");
           }}
         >
-          <input
-            autoComplete="username"
-            placeholder="handle"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-          <input
-            type="password"
-            autoComplete="current-password"
-            placeholder="passphrase"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <input
-            placeholder="invite code (new accounts)"
-            value={invite}
-            onChange={(e) => setInvite(e.target.value)}
-          />
-          {error ? <small style={{ color: "var(--danger)" }}>{error}</small> : null}
+          <label>
+            Handle
+            <input autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} />
+          </label>
+          <label>
+            Passphrase
+            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </label>
+          <label>
+            Invite <span>(new accounts)</span>
+            <input value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="from INSTALL.txt" />
+          </label>
+          {error ? <div className="banner err">{error}</div> : null}
           <button className="primary" type="submit">
-            Join the party line
+            Log in
           </button>
-          <button type="button" onClick={() => void submit("register")}>
+          <button type="button" className="ghost" onClick={() => void submit("register")}>
             Create account
           </button>
         </form>
-        <span className="device-pill">this session: {device}</span>
+        <div className="device-pill">this session · {device}</div>
       </div>
     </div>
   );
