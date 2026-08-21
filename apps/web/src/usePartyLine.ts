@@ -28,10 +28,6 @@ export type DeviceList = {
   outs: MediaDeviceInfo[];
 };
 
-function signalUrl(raw: string) {
-  return raw.replace(/\/rtc\/?$/, "");
-}
-
 export function usePartyLine(device: string) {
   const roomRef = useRef<Room | null>(null);
   const localTracks = useRef<LocalTrack[]>([]);
@@ -140,7 +136,6 @@ export function usePartyLine(device: string) {
     if (roomRef.current?.state === "connected") return roomRef.current;
     setError("");
     setStatus("connecting");
-    const meta = await fetch("/api/meta", { credentials: "include" }).then((r) => r.json());
     const tokenRes = await fetch("/api/livekit/token", {
       method: "POST",
       credentials: "include",
@@ -149,8 +144,8 @@ export function usePartyLine(device: string) {
     });
     const tokenBody = await tokenRes.json();
     if (!tokenRes.ok) throw new Error(tokenBody.error ?? "token failed");
-    const fallback = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}`;
-    const url = signalUrl(tokenBody.url ?? meta.livekitUrl ?? fallback);
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.hostname}:7880`;
 
     if (roomRef.current) {
       try {
@@ -195,7 +190,7 @@ export function usePartyLine(device: string) {
       try {
         const room = await connect();
         if (room.state !== "connected") {
-          throw new Error("voice server is not connected — check LiveKit /rtc proxy");
+          throw new Error("voice server is not connected");
         }
         for (const t of tracks) {
           localTracks.current.push(t);
