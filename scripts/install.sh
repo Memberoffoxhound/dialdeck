@@ -69,13 +69,9 @@ ensure_engine() {
         ENGINE=(podman compose)
         return 0
       fi
-      ENGINE=(env PODMAN_COMPOSE_WARNING_LOGS=false docker-compose)
-      export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
       systemctl --user enable --now podman.socket 2>/dev/null || true
-      if pick_engine || need_cmd docker-compose; then
-        ENGINE=(podman compose)
-        podman compose version >/dev/null 2>&1 && return 0
-      fi
+      ENGINE=(podman compose)
+      podman compose version >/dev/null 2>&1 && return 0
     fi
   fi
 
@@ -97,8 +93,7 @@ ensure_engine() {
   if need_cmd rpm-ostree; then
     if confirm "Layer moby-engine + docker-compose with rpm-ostree? Needs sudo and a reboot."; then
       sudo rpm-ostree install -y moby-engine docker-compose || sudo rpm-ostree install -y docker docker-compose || true
-      warn "Reboot, then run this installer again. After reboot: sudo systemctl enable --now docker"
-      warn "and: sudo usermod -aG docker $USER"
+      warn "Reboot, then run this installer again."
       exit 0
     fi
   elif need_cmd apt-get || need_cmd dnf; then
@@ -106,7 +101,6 @@ ensure_engine() {
       curl -fsSL https://get.docker.com | sudo sh
       sudo usermod -aG docker "$USER" || true
       sudo systemctl enable --now docker
-      warn "Log out/in if docker still says permission denied, then re-run the installer."
       pick_engine && return 0
     fi
   fi
@@ -122,12 +116,10 @@ need_cmd openssl || die "openssl is required"
 ensure_engine
 log "Using: ${ENGINE[*]}"
 
-if need_cmd docker && id -nG 2>/dev/null | grep -qw docker; then
-  :
-elif need_cmd docker && [[ "${EUID:-1}" -ne 0 ]]; then
-  if confirm "Add $USER to the docker group (sudo)? Needed so we are not root to run the stack."; then
+if need_cmd docker && ! id -nG 2>/dev/null | grep -qw docker && [[ "${EUID:-1}" -ne 0 ]]; then
+  if confirm "Add $USER to the docker group (sudo)?"; then
     sudo usermod -aG docker "$USER"
-    warn "Group change applies to new logins. Continuing via sg docker when possible."
+    warn "Group change applies to new logins."
   fi
 fi
 
@@ -254,24 +246,34 @@ if need_cmd systemctl; then
   fi
 fi
 
+# Off-LAN: Tailscale is on Bazzite already; this walks login + serve.
+# shellcheck disable=SC1091
+source "$INSTALL_DIR/scripts/configure-tailscale.sh" || warn "Tailscale step skipped or failed"
+set -a
+# shellcheck disable=SC1091
+source "$INSTALL_DIR/.env"
+set +a
+
 LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 URL="http://localhost:${HTTP_PORT}"
 LAN_URL="http://${LAN_IP:-<lan-ip>}:${HTTP_PORT}"
+SHARE_URL="${PUBLIC_URL:-$LAN_URL}"
 
 cat > "$INSTALL_DIR/INSTALL.txt" <<EOF
 Dialdeck is up.
 
 This machine:  ${URL}
 On your LAN:   ${LAN_URL}
+Share URL:     ${SHARE_URL}
 Invite code:   ${INVITE_CODE}
 Video:         VBR auto 480p–1080p60
+Reachability:  ${REACHABILITY_MODE:-local}
 
-Friends open the LAN URL, Create account, enter the invite code.
-First account is owner.
+You: open the Share URL, Create account, enter the invite. First account is owner.
+Family on LAN: same LAN URL.
+Family off-LAN: install Tailscale, join this tailnet, open the Share URL.
 
-Game Mode: linger is on so the user service starts at boot without Desktop Mode.
-Check:  systemctl --user status dialdeck
-
+Game Mode: systemctl --user status dialdeck
 Uninstall:  ${INSTALL_DIR}/scripts/uninstall.sh
 EOF
 
@@ -283,8 +285,8 @@ if [[ -d "$HOME/homebrew/plugins" ]]; then
   mkdir -p "$HOME/homebrew/plugins/dialdeck"
   cp -a "$INSTALL_DIR/apps/decky/." "$HOME/homebrew/plugins/dialdeck/"
   if need_cmd pnpm; then
-    (cd "$HOME/homebrew/plugins/dialdeck" && pnpm i && pnpm build) || warn "plugin build failed; QAM UI needs dist/index.js"
+    (cd "$HOME/homebrew/plugins/dialdeck" && pnpm i && pnpm build) || warn "plugin build failed"
   else
-    warn "pnpm not found — QAM stats panel needs a built dist/. Install pnpm and: cd ~/homebrew/plugins/dialdeck && pnpm i && pnpm build"
+    warn "pnpm not found — QAM stats need: cd ~/homebrew/plugins/dialdeck && pnpm i && pnpm build"
   fi
 fi
