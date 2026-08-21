@@ -33,13 +33,10 @@ services:
 
   livekit:
     image: livekit/livekit-server:latest
+    network_mode: host
     command: ["--config", "/etc/livekit.yaml"]
     volumes:
       - ./deploy/livekit.yaml:/etc/livekit.yaml:ro,z
-    ports:
-      - "7880:7880"
-      - "7881:7881"
-      - "50000-50100:50000-50100/udp"
     restart: unless-stopped
 
   api:
@@ -52,7 +49,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:-change-me}
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-devkey}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secretsecretsecretsecretsecretsecre}
-      LIVEKIT_HOST: http://livekit:7880
+      LIVEKIT_HOST: http://127.0.0.1:7880
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8090}
       REACHABILITY_MODE: ${REACHABILITY_MODE:-local}
       VIDEO_MIN: ${VIDEO_MIN:-480p}
@@ -78,6 +75,8 @@ services:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro,z
     ports:
       - "${HTTP_PORT:-8090}:8080"
+    extra_hosts:
+      - "livekit:host-gateway"
     depends_on:
       - web
       - api
