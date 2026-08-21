@@ -45,7 +45,7 @@ const RTC_CONFIG: RTCConfiguration = {
 function needMedia() {
   if (typeof navigator === "undefined" || !navigator.mediaDevices) {
     throw new Error(
-      "Voice and video need HTTPS. Open https://THIS-IP:8443 and accept the certificate (Firefox: Advanced → Accept)."
+      "Voice and video need HTTPS. Open https://THIS-IP:8443 and accept the certificate."
     );
   }
 }
@@ -168,9 +168,8 @@ export function usePartyLine(device: string) {
     const tokenBody = await tokenRes.json();
     if (!tokenRes.ok) throw new Error(tokenBody.error ?? "token failed");
     const url =
-      location.protocol === "https:"
-        ? `wss://${location.host}`
-        : `ws://${location.hostname}:7880`;
+      tokenBody.url ||
+      (location.protocol === "https:" ? `wss://${location.host}` : `ws://${location.hostname}:7880`);
 
     if (roomRef.current) {
       try {
