@@ -177,6 +177,14 @@ source .env
 set +a
 INVITE_CODE="${INVITE_CODE:-$(openssl rand -hex 3)}"
 
+# shellcheck disable=SC1091
+source "$INSTALL_DIR/scripts/pick-ports.sh"
+choose_ports
+set -a
+# shellcheck disable=SC1091
+source .env
+set +a
+
 log "Writing LiveKit keys"
 cat > deploy/livekit.yaml <<EOF
 port: 7880
@@ -201,8 +209,13 @@ room:
     - mime: video/av1
 EOF
 
-log "Starting stack"
-"${ENGINE[@]}" -f docker-compose.yml up -d --build
+log "Starting stack on :${HTTP_PORT}"
+if ! "${ENGINE[@]}" -f docker-compose.yml up -d --build; then
+  warn "Compose failed — often a busy port. Rechecking."
+  choose_ports
+  set -a; source .env; set +a
+  "${ENGINE[@]}" -f docker-compose.yml up -d --build
+fi
 
 log "Waiting for API"
 for i in $(seq 1 60); do
@@ -246,7 +259,6 @@ if need_cmd systemctl; then
   fi
 fi
 
-# Off-LAN: Tailscale is on Bazzite already; this walks login + serve.
 # shellcheck disable=SC1091
 source "$INSTALL_DIR/scripts/configure-tailscale.sh" || warn "Tailscale step skipped or failed"
 set -a
