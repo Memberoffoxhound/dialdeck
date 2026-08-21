@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Session } from "../App";
 
 export default function Login({
@@ -10,34 +10,35 @@ export default function Login({
 }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [invite, setInvite] = useState("");
   const [error, setError] = useState("");
+  const [spaceName, setSpaceName] = useState("Dialdeck");
+
+  useEffect(() => {
+    void fetch("/api/meta")
+      .then((r) => r.json())
+      .then((m) => setSpaceName(m.spaceName ?? "Dialdeck"))
+      .catch(() => {});
+  }, []);
 
   async function submit(mode: "login" | "register") {
     setError("");
-    try {
-      const res = await fetch(`/api/auth/${mode}`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password, device })
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({ error: res.statusText }));
-        throw new Error(body.error ?? "failed");
-      }
-      const body = await res.json();
-      onEnter({
-        username: body.username ?? username,
-        device,
-        role: body.role ?? "member"
-      });
-    } catch (err) {
-      // Offline / first-run: still let the PWA shell be explored.
-      if (username.trim()) {
-        onEnter({ username: username.trim(), device, role: "owner" });
-        return;
-      }
-      setError(err instanceof Error ? err.message : "could not sign in");
+    const res = await fetch(`/api/auth/${mode}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ username, password, invite, device })
+    });
+    const body = await res.json().catch(() => ({ error: res.statusText }));
+    if (!res.ok) {
+      setError(body.error ?? "could not sign in");
+      return;
     }
+    onEnter({
+      username: body.username ?? username,
+      device,
+      role: body.role ?? "member"
+    });
   }
 
   return (
@@ -48,7 +49,7 @@ export default function Login({
           <div>
             <strong>Dialdeck</strong>
             <br />
-            <small>pick up the line</small>
+            <small>{spaceName} · pick up the line</small>
           </div>
         </div>
         <form
@@ -70,12 +71,17 @@ export default function Login({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+          <input
+            placeholder="invite code (new accounts)"
+            value={invite}
+            onChange={(e) => setInvite(e.target.value)}
+          />
           {error ? <small style={{ color: "var(--danger)" }}>{error}</small> : null}
           <button className="primary" type="submit">
             Join the party line
           </button>
           <button type="button" onClick={() => void submit("register")}>
-            Create account + avatar later
+            Create account
           </button>
         </form>
         <span className="device-pill">this session: {device}</span>
