@@ -18,48 +18,58 @@ function iconFor(code, isDay) {
 function roast({ code, temp, wind, isDay }) {
   const t = Math.round(Number(temp) || 0);
   const w = Math.round(Number(wind) || 0);
-  const heat = t >= 92;
-  const cold = t <= 28;
+  const deg = `${t}\u00b0`;
   const lines = {
-    clear: [
-      isDay
-        ? `Sun's out, ${t}\u00b0. No excuse. Go touch grass or admit you're a goblin.`
-        : `Clear night, ${t}\u00b0. Moon's clocking in. You're still indoors. Respect.`,
-      heat
-        ? `${t}\u00b0 and not a cloud to hide under. The sun is being a menace.`
-        : cold
-          ? `Pretty sky, mean air. ${t}\u00b0. Jacket or regret.`
-          : `${t}\u00b0 and clear. Weather did its job. Don't make it a personality.`
-    ],
+    clear: isDay
+      ? [
+          `${deg} and naked sun. Shirt's optional. Dignity already left.`,
+          `Sun's out, dicks out energy. ${deg}. Hydrate or get cooked like a rotisserie slut.`,
+          t >= 92
+            ? `It's ${deg}. The pavement wants to fuck you. Stay inside and be horny in AC.`
+            : `Clear, ${deg}. Sky's showing off. You could go outside and still choose the couch. Iconic.`
+        ]
+      : [
+          `Moon's out, ${deg}. Prime weather to be a problem in the dark.`,
+          `Clear night, ${deg}. Good for stargazing or other horizontal hobbies.`,
+          t <= 32
+            ? `Pretty as hell and ${deg}. Cold enough to make nipples a personality.`
+            : `Night's clear. ${deg}. Nobody's watching. Don't waste it.`
+        ],
     fair: [
-      `${t}\u00b0, a few clouds loitering. Sky's half-assing it.`,
-      isDay ? `Sun peeking through like it owes rent. ${t}\u00b0.` : `Cloudy moon energy. ${t}\u00b0. Cozy or depressing. Your call.`
+      `${deg}, sun teasing through clouds like a cheap stripper. Commit or get off the stage.`,
+      isDay
+        ? `Half-cloud, ${deg}. Sky's edging you. Nobody finishes.`
+        : `Moon with a little cover. ${deg}. Soft lighting for bad decisions.`
     ],
     overcast: [
-      `Ceiling's down. ${t}\u00b0 of leftover dishwater sky.`,
-      `Gray on gray. ${t}\u00b0. Midwest default skin.`
+      `Gray ceiling, ${deg}. The sky put on sweatpants and cancelled. Same.`,
+      `Overcast. ${deg}. Mood is unwashed sheets and leftover pizza.`
     ],
     fog: [
-      `Fog. ${t}\u00b0. Drive like you've got something to lose.`,
-      `Can't see squat. ${t}\u00b0. The air is thick on purpose.`
+      `Fog so thick you could fuck in the street and get away with it. ${deg}.`,
+      `Can't see shit. ${deg}. Drive like your secrets are in the trunk.`
     ],
     drizzle: [
-      `Drizzle. ${t}\u00b0. Not rain enough to count, wet enough to ruin the vibe.`,
-      `Sky's leaking. ${t}\u00b0. Annoyed, not endangered.`
+      `Sky's pissing on you, just a little. ${deg}. Humiliating, not fatal.`,
+      `Drizzle. ${deg}. Wet enough to ruin the hair, not enough to skip the booty call.`
     ],
     rain: [
-      `Rain. ${t}\u00b0. Your shoes are about to have a bad night.`,
-      w >= 20 ? `Rain plus ${w} mph wind. Stay in and start a raid.` : `It's dumping. ${t}\u00b0. Don't be a hero.`
+      `It's dumping. ${deg}. Stay in, get wet on purpose.`,
+      w >= 20
+        ? `Rain and ${w} mph. The sky is topping you. Tap out.`
+        : `Soaked. ${deg}. Perfect weather to cancel plans and be filthy at home.`
     ],
     snow: [
-      `Snow. ${t}\u00b0. Cute for five minutes. Then it's a chore.`,
-      `White stuff. ${t}\u00b0. If you have to go out, you already lost.`
+      `Snow. ${deg}. Cute until it's in your crack and your will to live.`,
+      `White-out. ${deg}. If you're going out, you're either horny or stupid. Often both.`
     ],
     storm: [
-      `Thunder. ${t}\u00b0. Unplug the fancy gear and enjoy the light show.`,
-      w >= 25 ? `Storm and ${w} mph. The sky is picking a fight.` : `It's being ugly out. Close the blinds and game.`
+      `Thunder. ${deg}. The sky's moaning. Unplug the tower and join it.`,
+      w >= 25
+        ? `Storm + ${w} mph. Nature's angry fuck. Don't be the afterthought.`
+        : `Lightning. ${deg}. If that's not a vibe, your blood's too clean.`
     ],
-    fallback: [`Sky's being weird. ${t}\u00b0. Don't trust it.`] 
+    fallback: [`Sky's being a freak. ${deg}. Match the energy.`] 
   };
   if (code == null) return pick(lines.fallback);
   if (code === 0) return pick(lines.clear);
