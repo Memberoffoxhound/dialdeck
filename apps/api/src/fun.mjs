@@ -147,7 +147,7 @@ export async function funPayload(req) {
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
       `&current=temperature_2m,weather_code,wind_speed_10m,is_day` +
       `&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,sunrise,sunset` +
-      `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=16&timezone=auto`
+      `&temperature_unit=fahrenheit&wind_speed_unit=mph&forecast_days=7&timezone=auto`
   )
     .then((r) => r.json())
     .catch(() => null);
