@@ -51,7 +51,7 @@ services:
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-secretsecretsecretsecretsecretsecre}
       LIVEKIT_HOST: http://127.0.0.1:7880
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8090}
-      REACHABILITY_MODE: ${REACHABILITY_MODE:-local}
+      REACHABILITY_MODE: ${REACHABILITY_MODE:-public}
       VIDEO_MIN: ${VIDEO_MIN:-480p}
       VIDEO_MAX: ${VIDEO_MAX:-1080p}
       VIDEO_FPS: ${VIDEO_FPS:-60}
@@ -70,10 +70,11 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    command: ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+    command: ["sh", "/opt/caddy-start.sh"]
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro,z
-      - ./deploy/tls:/certs:ro,z
+      - ./deploy/tls:/certs:z
+      - ./scripts/caddy-start.sh:/opt/caddy-start.sh:ro,z
     ports:
       - "${HTTP_PORT:-8090}:8080"
       - "${HTTPS_PORT:-8443}:8443"
